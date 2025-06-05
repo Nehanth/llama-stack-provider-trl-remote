@@ -267,7 +267,7 @@ curl -X POST http://localhost:8321/v1/post-training/preference-optimize \
 
 #### Check Job Status
 ```bash
-curl "http://localhost:8321/v1/post-training/job/status?job_uuid=dpo-training-001"
+curl "http://localhost:8321/v1/post-training/job/status?job_uuid=dpo-training-with-checkpoints"
 ```
 
 Response shows current status:
