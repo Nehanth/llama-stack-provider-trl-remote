@@ -1,204 +1,199 @@
-# How to Run TRL Provider for Llama Stack
+# How to Run the TRL Provider for Llama Stack
 
-This guide provides complete A-Z instructions for setting up and running DPO (Direct Preference Optimization) training using the TRL provider for Llama Stack.
+This guide walks you through the complete process of setting up and running DPO (Direct Preference Optimization) training using the TRL provider for Llama Stack.
 
-## 📋 Prerequisites
+## Prerequisites
 
-- Python 3.10+
-- Git
-- At least 4GB RAM
-- Optional: CUDA-compatible GPU for faster training
+Before starting, ensure you have:
 
-## 🚀 Complete Setup (A-Z)
+- **Python 3.10+** installed
+- **Llama Stack** framework installed
+- **Git** for cloning repositories
+- **CUDA** (optional, for GPU training)
+- At least **8GB RAM** (16GB+ recommended for larger models)
 
-### Step 1: Clone Repository
+## Step 1: Environment Setup
 
-```bash
-# Clone the repository
-git clone <your-repo-url>
-cd llama-stack-provider-trl
-```
+### 1.1 Create Llama Stack Environment
 
-### Step 2: Build Environment with Llama Stack
+First, create a virtual environment specifically for this TRL provider:
 
 ```bash
-# Build the TRL environment using Llama Stack
+# Build the Llama Stack environment with experimental post-training template
 llama stack build --template experimental-post-training --image-type venv --image-name trl-post-training
+
+# Activate the environment
+source trl-post-training/bin/activate
 ```
 
-### Step 3: Install Dependencies
+### 1.2 Install Dependencies
+
+Clean installation to avoid version conflicts:
 
 ```bash
-# Activate the environment and install dependencies
-source trl-post-training/bin/activate
+# Remove any conflicting packages
 pip uninstall torchao -y
 rm -rf ./trl-post-training/lib/python3.10/site-packages/torchao*
+
+# Install specific compatible versions
 pip install trl==0.18.1 transformers==4.52.4
+
+# Install the TRL provider package
 uv pip install -e . --python ./trl-post-training/bin/python --force-reinstall --no-cache
 ```
 
-### Step 4: Start the TRL Provider Server
+### 1.3 Verify Installation
+
+Check that the package is correctly installed:
 
 ```bash
-# Start the server (will run on http://localhost:8321)
-llama stack run --image-type venv --image-name trl-post-training simple-trl-run.yaml
+python -c "import llama_stack_provider_trl; print('TRL provider installed successfully')"
 ```
 
-You should see:
-```
-INFO: Loading external providers from /path/to/llama-stack-provider-trl/providers.d
-INFO: Loaded inline provider spec for inline::trl
-INFO: Application startup complete.
-INFO: Uvicorn running on http://localhost:8321
+## Step 2: Start the Server
+
+### 2.1 Launch the Llama Stack Server
+
+Start the server with the TRL provider configuration:
+
+```bash
+llama stack run --image-type venv --image-name trl-post-training run.yaml
 ```
 
-## ✅ Verify Server is Running
+### 2.2 Verify Server is Running
+
+You should see log messages indicating successful startup:
+
+```
+INFO Loaded inline provider spec for inline::trl
+Uvicorn running on http://['::', '0.0.0.0']:8321
+```
+
+### 2.3 Test Server Connection
+
+In a new terminal window, verify the server is accessible:
 
 ```bash
 # Check if server is responding
+curl http://localhost:8321/health
+
+# Verify TRL provider is registered
 curl -s http://localhost:8321/v1/providers | jq '.data[] | select(.api=="post_training")'
-
-# Should return:
-# {
-#   "provider_id": "trl",
-#   "provider_type": "inline::trl",
-#   "api": "post_training"
-# }
 ```
 
-## 📊 Sample Datasets
-
-### Example 1: Simple Preference Dataset
-
-Create a file `sample_preference_data.json`:
-
+Expected response:
 ```json
-[
-  {
-    "prompt": "What is the capital of France?",
-    "chosen": "The capital of France is Paris. It's a beautiful city known for its art, culture, and the Eiffel Tower.",
-    "rejected": "France's capital is Paris, I think. It's got some tower or something."
-  },
-  {
-    "prompt": "Explain quantum computing in simple terms.",
-    "chosen": "Quantum computing uses quantum mechanical properties like superposition and entanglement to process information in ways classical computers cannot. Unlike classical bits that are either 0 or 1, quantum bits (qubits) can exist in multiple states simultaneously, potentially solving certain problems exponentially faster.",
-    "rejected": "Quantum computing is like super fast computers that use quantum stuff to be really fast and do things normal computers can't do well."
-  },
-  {
-    "prompt": "How do you make a good first impression?",
-    "chosen": "To make a good first impression: 1) Be punctual and well-groomed, 2) Maintain eye contact and offer a firm handshake, 3) Listen actively and ask thoughtful questions, 4) Show genuine interest in others, 5) Be positive and authentic in your interactions.",
-    "rejected": "Just be yourself and try to look nice. Smile and stuff. Don't be weird."
-  },
-  {
-    "prompt": "What's the difference between AI and machine learning?",
-    "chosen": "AI (Artificial Intelligence) is the broader concept of machines being able to carry out tasks in a way that we would consider 'smart.' Machine Learning is a subset of AI that focuses on algorithms that can learn and improve from data without being explicitly programmed for every scenario.",
-    "rejected": "AI is like robots and stuff. Machine learning is when computers learn things. They're basically the same thing I guess."
-  }
-]
-```
-
-### Example 2: Instruction-Following Dataset
-
-Create a file `instruction_preference_data.json`:
-
-```json
-[
-  {
-    "prompt": "Write a professional email declining a job offer.",
-    "chosen": "Subject: Thank you for the offer - [Your Name]\n\nDear [Hiring Manager's Name],\n\nThank you for offering me the [Position Title] role at [Company Name]. I appreciate the time you invested in the interview process and your confidence in my abilities.\n\nAfter careful consideration, I have decided to decline this offer as I have accepted a position that better aligns with my career goals.\n\nI hope we can stay in touch for future opportunities.\n\nBest regards,\n[Your Name]",
-    "rejected": "hey thanks for the job but i'm gonna pass. got something better. maybe next time.\n\nthanks"
-  },
-  {
-    "prompt": "Explain how to change a tire step by step.",
-    "chosen": "Here's how to change a tire safely:\n\n1. **Safety first**: Pull over to a safe, flat location away from traffic\n2. **Secure the vehicle**: Turn on hazard lights and apply parking brake\n3. **Gather tools**: Locate spare tire, jack, and lug wrench\n4. **Loosen lug nuts**: Remove hubcap if needed, then loosen (don't remove) lug nuts\n5. **Jack up the car**: Place jack under vehicle's jack point and raise until flat tire is off ground\n6. **Remove flat tire**: Fully remove lug nuts and pull tire toward you\n7. **Mount spare tire**: Align spare with bolts and push onto wheel hub\n8. **Replace lug nuts**: Hand-tighten, then use wrench to secure firmly\n9. **Lower vehicle**: Lower jack until spare tire touches ground but still supports some weight\n10. **Final tightening**: Fully tighten lug nuts in a star pattern\n11. **Finish**: Lower vehicle completely, remove jack, and stow equipment",
-    "rejected": "take off old tire, put on new tire. use the jack thing to lift the car up. tighten the nuts. done."
-  }
-]
-```
-
-## 🔧 API Usage Examples
-
-**Note**: Before running the curl commands below, make sure you've created the JSON dataset files (`sample_preference_data.json`, `instruction_preference_data.json`, `quick_test_data.json`) as shown in the Sample Datasets section above.
-
-**Requirements**: Install `jq` for JSON processing:
-```bash
-# Ubuntu/Debian
-sudo apt-get install jq
-
-# macOS
-brew install jq
-
-# Or use Method 2 (temporary file approach) if jq is not available
-```
-
-### Step 5: Register a Dataset
-
-```bash
-# Method 1: Register dataset using jq to properly merge JSON
-curl -X POST "http://localhost:8321/v1/datasets" \
-  -H "Content-Type: application/json" \
-  -d "$(jq -n --argjson rows "$(cat sample_preference_data.json)" '{
-    dataset_id: "preference_sample",
-    purpose: "post-training/messages",
-    source: {
-      type: "rows",
-      rows: $rows
-    }
-  }')"
-
-# Method 2: Alternative using temporary file approach
-cat > temp_dataset_request.json << EOF
 {
-  "dataset_id": "preference_sample",
-  "purpose": "post-training/messages",
-  "source": {
-    "type": "rows",
-    "rows": $(cat sample_preference_data.json)
-  }
+  "api": "post_training",
+  "provider_id": "trl",
+  "provider_type": "inline::trl"
 }
-EOF
-
-curl -X POST "http://localhost:8321/v1/datasets" \
-  -H "Content-Type: application/json" \
-  -d @temp_dataset_request.json
-
-# Clean up
-rm temp_dataset_request.json
-
-# Register the instruction-following dataset
-curl -X POST "http://localhost:8321/v1/datasets" \
-  -H "Content-Type: application/json" \
-  -d "$(jq -n --argjson rows "$(cat instruction_preference_data.json)" '{
-    dataset_id: "instruction_sample",
-    purpose: "post-training/messages",
-    source: {
-      type: "rows",
-      rows: $rows
-    }
-  }')"
 ```
 
-### Step 6: Start DPO Training
+## Step 3: Running DPO Training
 
+### 3.1 Prepare Training Data
+
+The provider expects data in preference format. Use the included sample data or create your own:
+
+**Using included test data:**
 ```bash
-# Start a DPO training job using the registered dataset
-curl -X POST "http://localhost:8321/v1/post-training/preference-optimize" \
+# The test_dpo_data.json file is ready to use
+ls test_dpo_data.json
+```
+
+**Create custom data:**
+```json
+{
+  "data": [
+    {
+      "prompt": "What is machine learning?",
+      "chosen": "Machine learning is a branch of artificial intelligence that enables computers to learn from data...",
+      "rejected": "Machine learning is just computers doing math stuff."
+    }
+  ]
+}
+```
+
+### 3.2 Register Dataset with Llama Stack
+
+Before training, you must register your dataset with Llama Stack. You have two options:
+
+**Option 1: File-Based Dataset (if you have a JSON file):**
+```bash
+curl -X POST http://localhost:8321/v1/datasets \
   -H "Content-Type: application/json" \
   -d '{
-    "job_uuid": "my-dpo-training",
+    "dataset_id": "test-dpo-dataset",
+    "purpose": "post-training/messages",
+    "dataset_type": "preference",
+    "source": {
+      "type": "uri",
+      "uri": "file://test_dpo_data.json",
+      "format": "json"
+    },
+    "metadata": {
+      "provider_id": "localfs",
+      "description": "DPO preference training dataset"
+    }
+  }'
+```
+
+**Option 2: Inline Dataset (recommended for testing):**
+```bash
+curl -X POST http://localhost:8321/v1/datasets \
+  -H "Content-Type: application/json" \
+  -d '{
+    "dataset_id": "test-dpo-dataset-inline",
+    "purpose": "post-training/messages",
+    "dataset_type": "preference",
+    "source": {
+      "type": "rows",
+      "rows": [
+        {
+          "prompt": "What is machine learning?",
+          "chosen": "Machine learning is a branch of artificial intelligence that enables computers to learn from data and improve their performance on specific tasks without being explicitly programmed. It uses algorithms to find patterns in data and make predictions or decisions.",
+          "rejected": "Machine learning is just computers doing math stuff with data."
+        },
+        {
+          "prompt": "Write a hello world program",
+          "chosen": "Here is a simple hello world program in Python:\n\n```python\nprint(\"Hello, World!\")\n```\n\nThis program uses the print() function to display the text to the console.",
+          "rejected": "print hello world"
+        },
+        {
+          "prompt": "Explain the concept of fine-tuning",
+          "chosen": "Fine-tuning is the process of taking a pre-trained model and further training it on a specific dataset to adapt it for a particular task or domain while leveraging its existing knowledge. This approach is more efficient than training from scratch.",
+          "rejected": "Fine-tuning means making a model better by training it more."
+        }
+      ]
+    },
+    "metadata": {
+      "provider_id": "localfs",
+      "description": "Inline DPO preference training dataset"
+    }
+  }'
+```
+
+**Verify registration:**
+```bash
+# Check registered datasets
+curl -s http://localhost:8321/v1/datasets | jq '.'
+```
+
+You should see your dataset listed with ID `test-dpo-dataset`.
+
+### 3.3 Start DPO Training Job
+
+Launch a DPO training job using the REST API:
+
+**Basic Training (no model saving):**
+```bash
+curl -X POST http://localhost:8321/v1/post-training/preference-optimize \
+  -H "Content-Type: application/json" \
+  -d '{
+    "job_uuid": "dpo-training-001",
     "model": "distilgpt2",
     "finetuned_model": "my-dpo-model",
-    "training_config": {
-      "data_config": {
-        "dataset_id": "preference_sample",
-        "data_format": "instruct",
-        "batch_size": 1,
-        "shuffle": true
-      },
-      "n_epochs": 1,
-      "max_steps_per_epoch": 2,
-      "gradient_accumulation_steps": 1
-    },
     "algorithm_config": {
       "type": "dpo",
       "reward_scale": 1.0,
@@ -206,37 +201,32 @@ curl -X POST "http://localhost:8321/v1/post-training/preference-optimize" \
       "epsilon": 0.1,
       "gamma": 0.99
     },
-    "optimizer_config": {
-      "lr": 1e-6,
-      "lr_scheduler": "linear_with_warmup",
-      "warmup_steps": 0
+    "training_config": {
+      "n_epochs": 1,
+      "max_steps_per_epoch": 10,
+      "learning_rate": 1e-6,
+      "data_config": {
+        "dataset_id": "test-dpo-dataset-inline",
+        "batch_size": 2,
+        "shuffle": true,
+        "data_format": "instruct",
+        "train_split_percentage": 0.8
+      }
     },
-    "hyperparam_search_config": {
-      "enabled": false
-    },
-    "logger_config": {
-      "log_level": "INFO"
-    }
+    "hyperparam_search_config": {},
+    "logger_config": {}
   }'
+```
 
-# Or use the instruction-following dataset:
-curl -X POST "http://localhost:8321/v1/post-training/preference-optimize" \
+**Training with Model Saving:**
+```bash
+curl -X POST http://localhost:8321/v1/post-training/preference-optimize \
   -H "Content-Type: application/json" \
   -d '{
-    "job_uuid": "instruction-training",
+    "job_uuid": "dpo-training-with-checkpoints",
     "model": "distilgpt2",
-    "finetuned_model": "my-instruction-model",
-    "training_config": {
-      "data_config": {
-        "dataset_id": "instruction_sample",
-        "data_format": "instruct",
-        "batch_size": 1,
-        "shuffle": true
-      },
-      "n_epochs": 1,
-      "max_steps_per_epoch": 2,
-      "gradient_accumulation_steps": 1
-    },
+    "finetuned_model": "my-dpo-model",
+    "checkpoint_dir": "./checkpoints",
     "algorithm_config": {
       "type": "dpo",
       "reward_scale": 1.0,
@@ -244,223 +234,375 @@ curl -X POST "http://localhost:8321/v1/post-training/preference-optimize" \
       "epsilon": 0.1,
       "gamma": 0.99
     },
-    "optimizer_config": {
-      "lr": 1e-6,
-      "lr_scheduler": "linear_with_warmup",
-      "warmup_steps": 0
+    "training_config": {
+      "n_epochs": 1,
+      "max_steps_per_epoch": 10,
+      "learning_rate": 1e-6,
+      "data_config": {
+        "dataset_id": "test-dpo-dataset-inline",
+        "batch_size": 2,
+        "shuffle": true,
+        "data_format": "instruct",
+        "train_split_percentage": 0.8
+      }
     },
-    "hyperparam_search_config": {
-      "enabled": false
-    },
-    "logger_config": {
-      "log_level": "INFO"
-    }
+    "hyperparam_search_config": {},
+    "logger_config": {}
   }'
 ```
 
-### Step 7: Monitor Training Progress
+**Important Notes:**
+- Use the registered dataset ID from step 3.2 (either `test-dpo-dataset` for file-based or `test-dpo-dataset-inline` for inline data)
+- Add `"checkpoint_dir": "./checkpoints"` to save the trained model to your current directory
+- The trained model will be saved in `./checkpoints/dpo_model/` and include all necessary files (model weights, tokenizer, config)
 
-```bash
-# Check job status
-curl "http://localhost:8321/v1/post-training/job/status?job_uuid=my-dpo-training"
-
-# Example response:
-# {
-#   "job_uuid": "my-dpo-training",
-#   "status": "completed",
-#   "resources_allocated": {...},
-#   "checkpoints": [
-#     {
-#       "identifier": "distilgpt2-dpo-1",
-#       "path": "/path/to/my-dpo-training/dpo_model",
-#       "created_at": "2025-01-05T01:17:08.885000+00:00"
-#     }
-#   ]
-# }
-```
-
-### Step 8: List All Training Jobs
-
-```bash
-# Get all post-training jobs
-curl "http://localhost:8321/v1/post-training/jobs"
-```
-
-## 🎯 Quick Test Example
-
-First, create a minimal test dataset file `quick_test_data.json`:
-
+**Expected Response:**
 ```json
-[
-  {
-    "prompt": "Hello",
-    "chosen": "Hello! How can I help you today?",
-    "rejected": "hi"
-  }
-]
+{
+  "job_uuid": "dpo-training-with-checkpoints"
+}
 ```
 
-Here's a complete quick test you can run:
+### 3.4 Monitor Training Progress
+
+#### Check Job Status
+```bash
+curl "http://localhost:8321/v1/post-training/job/status?job_uuid=dpo-training-001"
+```
+
+Response shows current status:
+```json
+{
+  "job_uuid": "dpo-training-001",
+  "status": "in_progress",
+  "scheduled_at": "2024-01-10T10:00:00Z",
+  "started_at": "2024-01-10T10:00:30Z",
+  "checkpoints": [],
+  "resources_allocated": {
+    "device": "cpu",
+    "memory_allocated": "2.5GB"
+  }
+}
+```
+
+#### List All Jobs
+```bash
+curl http://localhost:8321/v1/post-training/jobs
+```
+
+#### View Server Logs
+Monitor the training logs in the server terminal:
+- Job scheduling messages
+- Training progress updates
+- Checkpoint saves
+- Completion notifications
+
+### 3.5 Retrieve Training Results
+
+Once training completes (status: "completed"), get the artifacts:
 
 ```bash
-# 1. Register a minimal dataset using the JSON file
-curl -X POST "http://localhost:8321/v1/datasets" \
-  -H "Content-Type: application/json" \
-  -d "$(jq -n --argjson rows "$(cat quick_test_data.json)" '{
-    dataset_id: "quick_test",
-    purpose: "post-training/messages",
-    source: {
-      type: "rows",
-      rows: $rows
+curl "http://localhost:8321/v1/post-training/job/artifacts?job_uuid=dpo-training-001"
+```
+
+Response includes checkpoints:
+```json
+{
+  "job_uuid": "dpo-training-001",
+  "checkpoints": [
+    {
+      "identifier": "checkpoint-final",
+      "path": "/tmp/dpo-training-001/final",
+      "metadata": {
+        "epoch": 1,
+        "step": 10,
+        "loss": 0.45
+      }
     }
-  }')"
-
-# 2. Start training (1 step only for quick test)
-curl -X POST "http://localhost:8321/v1/post-training/preference-optimize" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "job_uuid": "quick-test",
-    "model": "distilgpt2",
-    "finetuned_model": "quick-test-model",
-    "training_config": {
-      "data_config": {
-        "dataset_id": "quick_test",
-        "data_format": "instruct",
-        "batch_size": 1,
-        "shuffle": true
-      },
-      "n_epochs": 1,
-      "max_steps_per_epoch": 1,
-      "gradient_accumulation_steps": 1
-    },
-    "algorithm_config": {
-      "type": "dpo",
-      "reward_scale": 1.0,
-      "reward_clip": 5.0,
-      "epsilon": 0.1,
-      "gamma": 0.99
-    },
-    "optimizer_config": {
-      "lr": 1e-6,
-      "lr_scheduler": "linear_with_warmup",
-      "warmup_steps": 0
-    },
-    "hyperparam_search_config": {
-      "enabled": false
-    },
-    "logger_config": {
-      "log_level": "INFO"
-    }
-  }'
-
-# 3. Check status (wait ~10 seconds for training to complete)
-curl "http://localhost:8321/v1/post-training/job/status?job_uuid=quick-test"
+  ]
+}
 ```
 
-## 📁 File Structure After Training
+## Step 4: Configuration Options
 
-After successful training, you'll find:
+### 4.1 Provider Configuration
 
-```
-quick-test/
-├── dpo_model/
-│   ├── config.json           # Model configuration
-│   ├── model.safetensors     # Trained model weights (~327MB for distilgpt2)
-│   ├── tokenizer.json        # Tokenizer data
-│   ├── tokenizer_config.json # Tokenizer configuration
-│   └── special_tokens_map.json
-└── checkpoint-1/             # Intermediate checkpoint
-    ├── config.json
-    ├── model.safetensors
-    └── ...
-```
-
-## 🔍 Server Configuration
-
-The server configuration is in `simple-trl-run.yaml`:
+Modify `run.yaml` to adjust provider settings:
 
 ```yaml
 providers:
   post_training:
-  - config:
-      device: cpu                    # Change to "cuda" for GPU
-      dpo_beta: 0.1                 # DPO strength parameter
-      max_seq_length: 2048          # Maximum sequence length
-      use_reference_model: true     # Use reference model for DPO
-      gradient_checkpointing: false # Memory optimization
-      logging_steps: 10             # Logging frequency
-      warmup_ratio: 0.1            # Learning rate warmup
-      weight_decay: 0.01           # L2 regularization
-    provider_id: trl
+  - provider_id: trl
     provider_type: inline::trl
+    config:
+      device: "cuda"              # Use "cuda" for GPU training
+      dpo_beta: 0.1               # DPO beta parameter (0.1-0.5)
+      use_reference_model: true   # Enable reference model
+      max_seq_length: 2048        # Maximum sequence length
+      gradient_checkpointing: true # Enable for memory efficiency
+      logging_steps: 5            # Log every N steps
+      warmup_ratio: 0.1           # Learning rate warmup
+      weight_decay: 0.01          # Regularization
 ```
 
-## 🐛 Troubleshooting
+### 4.2 Training Configuration
 
-### Common Issues:
+Adjust training parameters in your API call:
 
-1. **Server won't start**: Check if port 8321 is available
-   ```bash
-   lsof -i :8321  # Check if port is in use
-   ```
+```json
+{
+  "training_config": {
+    "n_epochs": 3,                    // Number of training epochs
+    "max_steps_per_epoch": 100,       // Steps per epoch
+    "batch_size": 4,                  // Batch size (increase with more GPU memory)
+    "learning_rate": 1e-6,            // Learning rate (lower for stability)
+    "data_config": {
+      "dataset_id": "test-dpo-dataset",  // Registered dataset ID from /v1/datasets
+      "train_split_percentage": 0.8   // 80% train, 20% validation
+    }
+  }
+}
+```
 
-2. **Import errors**: Re-run Step 3 (dependency installation)
-   ```bash
-   source trl-post-training/bin/activate
-   pip uninstall torchao -y
-   rm -rf ./trl-post-training/lib/python3.10/site-packages/torchao*
-   pip install trl==0.18.1 transformers==4.52.4
-   uv pip install -e . --python ./trl-post-training/bin/python --force-reinstall --no-cache
-   ```
+### 4.3 DPO Algorithm Configuration
 
-3. **CUDA out of memory**: Reduce batch size or use CPU
+Fine-tune DPO behavior:
+
+```json
+{
+  "algorithm_config": {
+    "type": "dpo",
+    "reward_scale": 1.0,      // Scale factor for rewards
+    "reward_clip": 5.0        // Clip rewards to prevent instability
+  }
+}
+```
+
+## Step 5: Production Considerations
+
+### 5.1 GPU Training
+
+For faster training with CUDA:
+
+1. **Update configuration:**
    ```yaml
-   device: cpu  # In simple-trl-run.yaml
+   config:
+     device: "cuda"
+     gradient_checkpointing: true
    ```
 
-4. **Training hangs**: Use smaller models or fewer steps
+2. **Increase batch size:**
    ```json
-   "max_steps_per_epoch": 1
+   "batch_size": 8
    ```
 
-### Debug Logs:
+3. **Monitor GPU memory:**
+   ```bash
+   nvidia-smi
+   ```
 
-Check server logs for detailed information:
+### 5.2 Large Dataset Training
+
+For larger datasets:
+
+1. **Increase dataloader workers:**
+   ```yaml
+   config:
+     dataloader_num_workers: 4
+   ```
+
+2. **Use gradient checkpointing:**
+   ```yaml
+   config:
+     gradient_checkpointing: true
+   ```
+
+3. **Adjust sequence length:**
+   ```yaml
+   config:
+     max_seq_length: 1024  # Reduce if memory constrained
+   ```
+
+### 5.3 Monitoring and Logging
+
+1. **Server logs:** Monitor the Llama Stack server terminal
+2. **Job status:** Poll the status endpoint regularly
+3. **Resource usage:** Check the resources_allocated field
+4. **Checkpoints:** Retrieve artifacts for model evaluation
+
+## Step 6: Troubleshooting
+
+### 6.1 Server Won't Start
+
+**Import errors:**
 ```bash
-# The server outputs detailed logs including:
-# - Dataset loading progress
-# - Training metrics
-# - Memory usage
-# - Checkpoint saving
+# Reinstall dependencies
+source trl-post-training/bin/activate
+pip install trl==0.18.1 transformers==4.52.4
+uv pip install -e . --force-reinstall --no-cache
 ```
 
-## 🎉 Success Indicators
+**Port conflicts:**
+```bash
+# Check what's using port 8321
+lsof -ti:8321
 
-You'll know it's working when you see:
+# Kill conflicting processes
+lsof -ti:8321 | xargs kill -9
+```
 
-1. **Server startup**: "Uvicorn running on http://localhost:8321"
-2. **Provider loaded**: "Loaded inline provider spec for inline::trl"
-3. **Training progress**: Progress bars and training metrics
-4. **Completion**: "DPO training completed successfully"
-5. **Artifacts**: Model files saved in output directory
-6. **API response**: Job status shows "completed"
+### 6.2 Training Fails
 
-## 🚀 Next Steps
+**Memory issues:**
+- Reduce batch size to 1 or 2
+- Enable gradient checkpointing
+- Use CPU instead of GPU
 
-Once you have the basic setup working:
+**Data format errors:**
+- Verify JSON format matches the expected structure
+- Ensure all entries have "prompt", "chosen", and "rejected" fields
+- Check that dataset is properly registered with Llama Stack
 
-1. **Scale up**: Use larger models like `microsoft/DialoGPT-medium`
-2. **More data**: Create larger preference datasets
-3. **GPU training**: Configure CUDA for faster training
-4. **Production**: Deploy on cloud instances with GPUs
-5. **Integration**: Connect to larger Llama Stack deployments
+**Dataset registration errors:**
+- Verify dataset file exists and is accessible
+- Check that dataset_id matches the registered ID
+- Ensure JSON file follows the correct structure
 
-## 📖 Additional Resources
+**Model loading errors:**
+- Verify model name is valid (e.g., "distilgpt2", "gpt2")
+- Check internet connection for downloading models
 
-- [TRL Documentation](https://huggingface.co/docs/trl/)
-- [DPO Paper](https://arxiv.org/abs/2305.18290)
-- [Llama Stack Documentation](https://llama-stack.readthedocs.io/)
+### 6.3 Job Management
 
----
+**Cancel stuck jobs:**
+```bash
+curl -X POST "http://localhost:8321/v1/post-training/job/cancel" \
+  -H "Content-Type: application/json" \
+  -d '{"job_uuid": "your-job-uuid"}'
+```
 
-🎯 **You now have a fully functional TRL provider for Llama Stack!** The setup supports both CPU and GPU training, handles real datasets, and provides production-ready DPO training capabilities.
+**Clear all jobs:**
+- Restart the server to clear job queue
+
+## Step 7: API Reference
+
+### Available Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/v1/datasets` | Register a dataset |
+| GET | `/v1/datasets` | List registered datasets |
+| POST | `/v1/post-training/preference-optimize` | Start DPO training |
+| GET | `/v1/post-training/job/status?job_uuid=<id>` | Get job status |
+| GET | `/v1/post-training/job/artifacts?job_uuid=<id>` | Get artifacts |
+| POST | `/v1/post-training/job/cancel` | Cancel job |
+| GET | `/v1/post-training/jobs` | List all jobs |
+| GET | `/v1/providers` | List providers |
+| GET | `/health` | Server health |
+
+### API Documentation
+
+Access interactive API docs at: http://localhost:8321/docs
+
+## Next Steps
+
+1. **Experiment with parameters:** Try different learning rates, batch sizes, and DPO settings
+2. **Use your own data:** Create custom preference datasets for your use case
+3. **Evaluate results:** Load trained checkpoints and test on validation data
+4. **Scale up:** Move to GPU training for larger models and datasets
+5. **Integration:** Integrate trained models into your applications
+
+For more advanced usage and troubleshooting, refer to the main README.md file.
+
+## Sample Dataset
+
+### Data Format Requirements
+
+The TRL provider expects training data in JSON format with the following structure:
+
+```json
+{
+  "data": [
+    {
+      "prompt": "Your question or instruction here",
+      "chosen": "The preferred/better response",
+      "rejected": "The less preferred/worse response"
+    }
+  ]
+}
+```
+
+### Complete Sample Dataset
+
+Here's a comprehensive sample dataset (`sample_training_data.json`) covering various types of prompts:
+
+```json
+{
+  "data": [
+    {
+      "prompt": "Explain quantum computing in simple terms.",
+      "chosen": "Quantum computing is a revolutionary technology that uses quantum mechanical phenomena like superposition and entanglement to process information. Unlike classical computers that use bits (0 or 1), quantum computers use quantum bits or 'qubits' that can exist in multiple states simultaneously. This allows them to perform certain calculations exponentially faster than classical computers, particularly for problems involving cryptography, optimization, and simulation of quantum systems.",
+      "rejected": "Quantum computing is just really fast computers that use quantum stuff to be better than normal computers."
+    },
+    {
+      "prompt": "Write a Python function to check if a number is prime.",
+      "chosen": "Here's an efficient Python function to check if a number is prime:\n\n```python\ndef is_prime(n):\n    \"\"\"Check if a number is prime.\"\"\"\n    if n < 2:\n        return False\n    if n == 2:\n        return True\n    if n % 2 == 0:\n        return False\n    \n    # Check odd divisors up to sqrt(n)\n    for i in range(3, int(n**0.5) + 1, 2):\n        if n % i == 0:\n            return False\n    return True\n```\n\nThis function handles edge cases and uses an optimized algorithm that only checks odd divisors up to the square root of n.",
+      "rejected": "def is_prime(n):\n    for i in range(2, n):\n        if n % i == 0:\n            return False\n    return True"
+    },
+    {
+      "prompt": "How do you handle stress at work?",
+      "chosen": "Here are effective strategies for managing work stress:\n\n1. **Time Management**: Prioritize tasks using methods like the Eisenhower Matrix\n2. **Set Boundaries**: Learn to say no to non-essential requests\n3. **Take Breaks**: Regular short breaks improve focus and reduce burnout\n4. **Exercise**: Physical activity releases endorphins and reduces stress hormones\n5. **Mindfulness**: Practice deep breathing or meditation during stressful moments\n6. **Communicate**: Talk to supervisors about workload concerns\n7. **Work-Life Balance**: Maintain clear separation between work and personal time\n8. **Seek Support**: Connect with colleagues or professionals when needed\n\nRemember, some stress is normal, but chronic stress requires proactive management.",
+      "rejected": "Just deal with it. Everyone has stress at work, you just need to push through and work harder."
+    },
+    {
+      "prompt": "What's the difference between machine learning and artificial intelligence?",
+      "chosen": "Artificial Intelligence (AI) and Machine Learning (ML) are related but distinct concepts:\n\n**Artificial Intelligence:**\n- Broader field focused on creating systems that can perform tasks requiring human intelligence\n- Includes rule-based systems, expert systems, robotics, and machine learning\n- Goal: Simulate human cognitive functions like reasoning, learning, and problem-solving\n\n**Machine Learning:**\n- Subset of AI that focuses on algorithms that improve through experience\n- Systems learn patterns from data without being explicitly programmed\n- Includes supervised, unsupervised, and reinforcement learning\n\n**Key Relationship:**\nML is a method to achieve AI. Not all AI uses ML (like rule-based chatbots), but ML is currently the most successful approach to creating intelligent systems.\n\n**Example:** A chess-playing AI could use hand-coded rules (traditional AI) or learn strategies from millions of games (ML approach).",
+      "rejected": "AI is the big thing and machine learning is part of it. They're basically the same thing - computers that think like humans."
+    },
+    {
+      "prompt": "Explain the concept of blockchain technology.",
+      "chosen": "Blockchain is a distributed ledger technology that maintains a continuously growing list of records (blocks) linked and secured using cryptography:\n\n**Key Components:**\n1. **Blocks**: Containers holding transaction data, timestamps, and cryptographic hashes\n2. **Chain**: Blocks linked chronologically through hash references\n3. **Decentralization**: No single authority controls the network\n4. **Consensus**: Network participants agree on valid transactions\n\n**How it Works:**\n- Transactions are broadcast to the network\n- Network nodes validate transactions using consensus mechanisms\n- Valid transactions are bundled into blocks\n- Blocks are added to the chain and distributed across all nodes\n\n**Benefits:**\n- Transparency and immutability\n- Reduced need for intermediaries\n- Enhanced security through cryptography\n- Global accessibility\n\n**Applications:** Cryptocurrencies, supply chain tracking, digital identity, smart contracts, and voting systems.",
+      "rejected": "Blockchain is the technology behind Bitcoin. It's like a digital ledger that can't be hacked because it's on many computers."
+    },
+    {
+      "prompt": "How do you debug a program that's running slowly?",
+      "chosen": "Here's a systematic approach to debugging performance issues:\n\n**1. Profiling and Measurement:**\n- Use profiling tools (cProfile for Python, Chrome DevTools for JavaScript)\n- Measure execution time for different code sections\n- Monitor memory usage and CPU utilization\n\n**2. Identify Bottlenecks:**\n- Look for functions consuming the most time\n- Check for memory leaks or excessive allocations\n- Identify I/O operations (database, file, network)\n\n**3. Common Performance Issues:**\n- Inefficient algorithms (O(n²) instead of O(n log n))\n- Unnecessary loops or redundant calculations\n- Database queries without proper indexing\n- Synchronous operations that could be asynchronous\n\n**4. Optimization Strategies:**\n- Optimize algorithms and data structures\n- Implement caching for frequently accessed data\n- Use batch operations for database queries\n- Parallelize independent operations\n- Remove or optimize expensive operations\n\n**5. Verify Improvements:**\n- Re-profile after changes\n- Use benchmarks to measure improvements\n- Test with realistic data volumes",
+      "rejected": "Just add more print statements everywhere to see what's slow, then fix the slow parts."
+    },
+    {
+      "prompt": "What are the best practices for API design?",
+      "chosen": "Here are essential best practices for designing robust APIs:\n\n**1. RESTful Principles:**\n- Use standard HTTP methods (GET, POST, PUT, DELETE)\n- Design resource-based URLs (/users/123, not /getUser?id=123)\n- Implement proper status codes (200, 201, 400, 401, 404, 500)\n\n**2. Consistency:**\n- Follow consistent naming conventions (snake_case or camelCase)\n- Use standard response formats across endpoints\n- Maintain consistent error handling patterns\n\n**3. Documentation:**\n- Provide comprehensive API documentation\n- Include examples for all endpoints\n- Document request/response schemas\n- Use tools like OpenAPI/Swagger\n\n**4. Security:**\n- Implement proper authentication (JWT, OAuth)\n- Use HTTPS for all endpoints\n- Validate and sanitize all inputs\n- Implement rate limiting\n\n**5. Performance:**\n- Support pagination for large datasets\n- Implement caching strategies\n- Use compression (gzip)\n- Optimize database queries\n\n**6. Versioning:**\n- Version your API (/v1/users)\n- Maintain backward compatibility\n- Provide migration guides for breaking changes",
+      "rejected": "Just make URLs that work and return JSON. Add authentication if you need it."
+    },
+    {
+      "prompt": "Explain the importance of code reviews.",
+      "chosen": "Code reviews are a critical practice in software development that provides multiple benefits:\n\n**Quality Improvement:**\n- Catch bugs and logic errors before production\n- Ensure adherence to coding standards and best practices\n- Identify potential security vulnerabilities\n- Improve code readability and maintainability\n\n**Knowledge Sharing:**\n- Share domain knowledge across team members\n- Expose developers to different coding approaches\n- Help junior developers learn from senior team members\n- Increase bus factor (reduce dependency on single developers)\n\n**Collaboration Benefits:**\n- Foster team communication and discussion\n- Build collective code ownership\n- Ensure multiple eyes on critical changes\n- Create opportunities for mentoring\n\n**Process Improvements:**\n- Maintain consistent code style across the project\n- Ensure documentation is updated with code changes\n- Verify that tests are adequate and passing\n- Check that changes align with architectural decisions\n\n**Best Practices:**\n- Keep reviews focused and reasonably sized\n- Be constructive and specific in feedback\n- Use automated tools to catch basic issues\n- Review promptly to avoid blocking teammates\n- Follow up on requested changes",
+      "rejected": "Code reviews are good because other people can check your code and find mistakes. It's required by most companies."
+    }
+  ]
+}
+```
+
+### Creating Quality Training Data
+
+**Guidelines for Effective DPO Data:**
+
+1. **Clear Contrast**: Ensure significant quality difference between chosen and rejected responses
+2. **Realistic Scenarios**: Use prompts that reflect real user needs
+3. **Diverse Topics**: Cover various domains and question types
+4. **Consistent Quality**: Chosen responses should consistently demonstrate better reasoning, accuracy, and helpfulness
+5. **Appropriate Length**: Balance detail with conciseness in both chosen and rejected responses
+
+**Common Response Quality Differences:**
+- **Accuracy**: Factually correct vs. incorrect information
+- **Completeness**: Comprehensive vs. superficial explanations
+- **Structure**: Well-organized vs. disorganized content
+- **Helpfulness**: Practical, actionable advice vs. vague suggestions
+- **Professional Tone**: Professional language vs. casual or inappropriate tone
+
+**Data Size Recommendations:**
+- **Minimum**: 50-100 examples for basic fine-tuning
+- **Recommended**: 500-1000 examples for good performance
+- **Optimal**: 1000+ examples for production use
+
+Save your data as a JSON file and reference it in your training configuration using the `dataset_id` parameter. 

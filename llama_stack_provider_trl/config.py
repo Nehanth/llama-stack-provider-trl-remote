@@ -49,10 +49,11 @@ class TrlPostTrainingConfig(BaseModel):
     device: str = "cuda"
 
     # Distributed training backend if using multiple devices
-    # Currently not fully implemented in the recipe, but here for future use
-    # - "fsdp": Fully Sharded Data Parallel (good for very large models)
-    # - "deepspeed": DeepSpeed ZeRO optimization (memory efficient)
-    # - None: Single device training only
+    # IMPORTANT: Llama Stack only supports single-node training
+    # Multi-node/multi-GPU training is NOT supported
+    # - "fsdp": Fully Sharded Data Parallel (NOT SUPPORTED)
+    # - "deepspeed": DeepSpeed ZeRO optimization (NOT SUPPORTED)
+    # - None: Single device training only (REQUIRED)
     distributed_backend: Literal["fsdp", "deepspeed"] | None = None
 
     # === MODEL AND CHECKPOINT SETTINGS ===
@@ -111,12 +112,13 @@ class TrlPostTrainingConfig(BaseModel):
     # Higher values = more regularization, lower values = less regularization
     weight_decay: float = 0.01
 
-    # === DATA LOADING SETTINGS ===
+    # === DATA LOADING SETTINGS (Single-Node Optimized) ===
 
     # Number of worker processes for data loading
+    # For single-node training, 0 is often more stable
     # Higher values can improve data loading speed but use more memory
-    # Set to 0 to disable multiprocessing (useful for debugging)
-    dataloader_num_workers: int = 4
+    # Set to 0 to disable multiprocessing (recommended for single-node)
+    dataloader_num_workers: int = 0
 
     # Whether to pin memory in data loader
     # Can improve data transfer speed to GPU but uses more system memory
