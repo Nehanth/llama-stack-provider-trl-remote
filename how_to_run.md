@@ -302,7 +302,7 @@ Monitor the training logs in the server terminal:
 Once training completes (status: "completed"), get the artifacts:
 
 ```bash
-curl "http://localhost:8321/v1/post-training/job/artifacts?job_uuid=dpo-training-001"
+curl "http://localhost:8321/v1/post-training/job/artifacts?job_uuid=dpo-training-with-checkpoints"
 ```
 
 Response includes checkpoints:
