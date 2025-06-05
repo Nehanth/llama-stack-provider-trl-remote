@@ -1,0 +1,25 @@
+version: '2'
+image_name: llama-stack-trl
+apis:
+- post_training
+providers:
+  post_training:
+  - provider_id: trl
+    provider_type: inline::trl
+    config:
+      device: "cpu"
+      dpo_beta: 0.1
+      use_reference_model: true
+      max_seq_length: 2048
+      gradient_checkpointing: false
+      logging_steps: 10
+      warmup_ratio: 0.1
+      weight_decay: 0.01
+external_providers_dir: ./providers.d
+metadata_store:
+  type: sqlite
+  db_path: /tmp/llama_stack_provider_trl/registry.db
+models: []
+shields: []
+server:
+  port: 8321 

@@ -1,0 +1,11 @@
+module: llama_stack_provider_trl
+config_class: llama_stack_provider_trl.config.TrlPostTrainingConfig
+pip_packages:
+  - trl
+  - transformers
+  - datasets
+  - torch
+api_dependencies:
+  - datasetio
+  - datasets
+optional_api_dependencies: [] 

@@ -45,14 +45,10 @@ from llama_stack.apis.post_training import (
 )
 
 # Import our TRL-specific configuration
-from llama_stack.providers.inline.post_training.trl.config import (
-    TrlPostTrainingConfig,
-)
+from llama_stack_provider_trl.config import TrlPostTrainingConfig
 
 # Import our training recipe that does the actual DPO training
-from llama_stack.providers.inline.post_training.trl.recipes.dpo_training_single_device import (
-    DPOTrainingSingleDevice,
-)
+from llama_stack_provider_trl.recipes.dpo_training_single_device import DPOTrainingSingleDevice
 
 # Import Llama Stack's job scheduling utilities
 from llama_stack.providers.utils.scheduler import JobArtifact, Scheduler
@@ -221,7 +217,8 @@ class TrlPostTrainingImpl:
     async def preference_optimize(
         self,
         job_uuid: str,                               # Unique ID for this training job
-        finetuned_model: str,                       # Base model to optimize (usually SFT model)
+        model: str,                                  # Base model to train (e.g., "distilgpt2")
+        finetuned_model: str,                       # Output model name (e.g., "my-dpo-model")
         algorithm_config: DPOAlignmentConfig,       # DPO-specific configuration
         training_config: TrainingConfig,            # General training settings
         hyperparam_search_config: dict[str, Any],   # Hyperparameter search settings
@@ -244,8 +241,8 @@ class TrlPostTrainingImpl:
         
         Args:
             job_uuid: Unique identifier for this training job
-            finetuned_model: Base model to optimize (usually a model that's already
-                           been supervised fine-tuned)
+            model: Base model to train (HuggingFace model identifier like "distilgpt2")
+            finetuned_model: Name for the output/fine-tuned model (used for saving)
             algorithm_config: DPOAlignmentConfig containing DPO-specific settings
                             like reward scaling, clipping, etc.
             training_config: TrainingConfig containing general training settings
@@ -286,7 +283,7 @@ class TrlPostTrainingImpl:
             # Run the actual DPO training
             # This is where the main training work happens
             resources_allocated, checkpoints = await recipe.train(
-                model=finetuned_model,              # Base model to optimize
+                model=model,                        # Base model to train (e.g., "distilgpt2")
                 output_dir=checkpoint_dir,          # Where to save results
                 job_uuid=job_uuid,                  # Job identifier
                 dpo_config=algorithm_config,        # DPO algorithm settings

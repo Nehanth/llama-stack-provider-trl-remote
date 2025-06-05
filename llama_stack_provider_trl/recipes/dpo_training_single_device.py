@@ -47,9 +47,6 @@ from typing import Any          # Type hints for better code documentation
 # Third-party system monitoring
 import psutil                   # Process and system monitoring (memory, CPU usage)
 
-# Import utility for cleaning up models from GPU memory
-from llama_stack.providers.inline.post_training.common.utils import evacuate_model_from_device
-
 # === ENVIRONMENT VARIABLE CONFIGURATION ===
 # These settings optimize performance and avoid conflicts with different backends
 
@@ -823,9 +820,9 @@ class DPOTrainingSingleDevice:
             # Clean up resources
             logger.info("Cleaning up resources")
             if hasattr(trainer, "model"):
-                evacuate_model_from_device(trainer.model, device.type)
+                self._clean_up_model(trainer.model, device.type)
             if ref_model:
-                evacuate_model_from_device(ref_model, device.type)
+                self._clean_up_model(ref_model, device.type)
             del trainer
             gc.collect()
             logger.info("Cleanup completed")
@@ -1112,4 +1109,26 @@ class DPOTrainingSingleDevice:
         except Exception as e:
             logger.warning(f"Error collecting checkpoints: {e}")
         
-        return checkpoints 
+        return checkpoints
+
+    def _clean_up_model(self, model: AutoModelForCausalLM, device_type: str) -> None:
+        """
+        Clean up a model from GPU memory.
+        
+        This method ensures that the model is properly deallocated from GPU memory
+        before the training process ends.
+        
+        Args:
+            model: PyTorch model to be cleaned up
+            device_type: Type of the device where the model was loaded
+        """
+        if device_type == "cuda":
+            torch.cuda.empty_cache()
+        elif device_type == "mps":
+            # MPS cleanup is handled automatically by Python garbage collection
+            pass
+        elif device_type == "cpu":
+            # CPU cleanup is handled automatically by Python garbage collection
+            pass
+        else:
+            raise RuntimeError(f"Unsupported device type: {device_type}") 
