@@ -1,9 +1,3 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the terms described in the LICENSE file in
-# the root directory of this source tree.
-
 """
 TRL Post-Training Provider Implementation
 ========================================
@@ -45,14 +39,10 @@ from llama_stack.apis.post_training import (
 )
 
 # Import our TRL-specific configuration
-from llama_stack.providers.inline.post_training.trl.config import (
-    TrlPostTrainingConfig,
-)
+from llama_stack_provider_trl.config import TrlPostTrainingConfig
 
 # Import our training recipe that does the actual DPO training
-from llama_stack.providers.inline.post_training.trl.recipes.dpo_training_single_device import (
-    DPOTrainingSingleDevice,
-)
+from llama_stack_provider_trl.recipes.dpo_training_single_device import DPOTrainingSingleDevice
 
 # Import Llama Stack's job scheduling utilities
 from llama_stack.providers.utils.scheduler import JobArtifact, Scheduler
@@ -179,28 +169,30 @@ class TrlPostTrainingImpl:
 
     async def supervised_fine_tune(
         self,
-        job_uuid: str,                               # Unique ID for this training job
-        training_config: TrainingConfig,             # General training settings
-        hyperparam_search_config: dict[str, Any],    # Hyperparameter search settings
-        logger_config: dict[str, Any],               # Logging configuration
-        model: str,                                  # Model identifier or path
-        checkpoint_dir: str | None = None,           # Directory to save checkpoints
-        algorithm_config: AlgorithmConfig | None = None,  # Algorithm-specific config
+        job_uuid: str,
+        training_config: TrainingConfig,
+        hyperparam_search_config: dict[str, Any],
+        logger_config: dict[str, Any],
+        model: str,
+        checkpoint_dir: str | None = None,
+        algorithm_config: AlgorithmConfig | None = None,
     ) -> PostTrainingJob:
         """
-        Supervised Fine-Tuning method - NOT IMPLEMENTED in TRL provider.
+        Supervised Fine-Tuning - NOT IMPLEMENTED in TRL provider.
         
-        The TRL provider specializes in preference optimization (DPO), not
-        supervised fine-tuning (SFT). For SFT, users should use the HuggingFace
-        provider instead.
+        NOTE: This method exists only because Llama Stack's PostTraining protocol
+        requires all implementing providers to have both supervised_fine_tune() and
+        preference_optimize() methods. Llama Stack's protocol compliance checker
+        enforces that all protocol methods exist, even if they raise NotImplementedError.
         
-        This method raises NotImplementedError to clearly indicate that SFT
-        is not supported and users should use a different provider.
+        This TRL provider specializes in DPO (Direct Preference Optimization) training only.
+        For supervised fine-tuning, use a different provider like HuggingFace.
+        For DPO training with this provider, use preference_optimize() instead.
         
         Args:
             job_uuid: Unique identifier for the training job
             training_config: General training configuration
-            hyperparam_search_config: Hyperparameter search configuration
+            hyperparam_search_config: Hyperparameter search configuration  
             logger_config: Logging configuration
             model: Model to fine-tune
             checkpoint_dir: Directory to save checkpoints
@@ -210,18 +202,22 @@ class TrlPostTrainingImpl:
             PostTrainingJob: Would return job information if implemented
             
         Raises:
-            NotImplementedError: Always raised since SFT is not supported
+            NotImplementedError: Always raised since SFT is not supported by this provider
         """
+        # This method only exists to satisfy Llama Stack's PostTraining protocol requirements
+        # The TRL provider is specialized for DPO training only
         raise NotImplementedError(
             "Supervised fine-tuning is not implemented in TRL provider. "
-            "Use preference_optimize instead for DPO training, or use the "
-            "HuggingFace provider for supervised fine-tuning."
+            "This method exists only to satisfy Llama Stack's PostTraining protocol requirements. "
+            "Use preference_optimize() instead for DPO training, or use a different provider "
+            "(like HuggingFace) for supervised fine-tuning."
         )
 
     async def preference_optimize(
         self,
         job_uuid: str,                               # Unique ID for this training job
-        finetuned_model: str,                       # Base model to optimize (usually SFT model)
+        model: str,                                  # Base model to train (e.g., "distilgpt2")
+        finetuned_model: str,                       # Output model name (e.g., "my-dpo-model")
         algorithm_config: DPOAlignmentConfig,       # DPO-specific configuration
         training_config: TrainingConfig,            # General training settings
         hyperparam_search_config: dict[str, Any],   # Hyperparameter search settings
@@ -244,8 +240,8 @@ class TrlPostTrainingImpl:
         
         Args:
             job_uuid: Unique identifier for this training job
-            finetuned_model: Base model to optimize (usually a model that's already
-                           been supervised fine-tuned)
+            model: Base model to train (HuggingFace model identifier like "distilgpt2")
+            finetuned_model: Name for the output/fine-tuned model (used for saving)
             algorithm_config: DPOAlignmentConfig containing DPO-specific settings
                             like reward scaling, clipping, etc.
             training_config: TrainingConfig containing general training settings
@@ -286,7 +282,7 @@ class TrlPostTrainingImpl:
             # Run the actual DPO training
             # This is where the main training work happens
             resources_allocated, checkpoints = await recipe.train(
-                model=finetuned_model,              # Base model to optimize
+                model=model,                        # Base model to train (e.g., "distilgpt2")
                 output_dir=checkpoint_dir,          # Where to save results
                 job_uuid=job_uuid,                  # Job identifier
                 dpo_config=algorithm_config,        # DPO algorithm settings
