@@ -582,27 +582,3 @@ Here's a comprehensive sample dataset (`sample_training_data.json`) covering var
   ]
 }
 ```
-
-### Creating Quality Training Data
-
-**Guidelines for Effective DPO Data:**
-
-1. **Clear Contrast**: Ensure significant quality difference between chosen and rejected responses
-2. **Realistic Scenarios**: Use prompts that reflect real user needs
-3. **Diverse Topics**: Cover various domains and question types
-4. **Consistent Quality**: Chosen responses should consistently demonstrate better reasoning, accuracy, and helpfulness
-5. **Appropriate Length**: Balance detail with conciseness in both chosen and rejected responses
-
-**Common Response Quality Differences:**
-- **Accuracy**: Factually correct vs. incorrect information
-- **Completeness**: Comprehensive vs. superficial explanations
-- **Structure**: Well-organized vs. disorganized content
-- **Helpfulness**: Practical, actionable advice vs. vague suggestions
-- **Professional Tone**: Professional language vs. casual or inappropriate tone
-
-**Data Size Recommendations:**
-- **Minimum**: 50-100 examples for basic fine-tuning
-- **Recommended**: 500-1000 examples for good performance
-- **Optimal**: 1000+ examples for production use
-
-Save your data as a JSON file and reference it in your training configuration using the `dataset_id` parameter. 
