@@ -1,7 +1,5 @@
 # TRL Provider for Llama Stack
 
-**Status: Fully Operational - DPO Training Provider Successfully Integrated**
-
 A TRL (Transformer Reinforcement Learning) provider that integrates DPO (Direct Preference Optimization) training capabilities into the Llama Stack ecosystem as an inline external provider.
 
 ## Overview
