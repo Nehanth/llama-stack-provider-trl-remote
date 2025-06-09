@@ -1,0 +1,21 @@
+name: llama-stack-trl
+distribution_spec:
+  description: Llama Stack with TRL Provider
+  docker_image: null
+  pip_dependencies:
+    - llama-stack
+    - opentelemetry-api
+    - opentelemetry-sdk
+    - opentelemetry-exporter-otlp
+    - -e .
+  providers:
+    post_training:
+      - inline::trl
+    datasetio:
+      - inline::localfs
+apis:
+  - post_training
+  - datasetio
+image_type: venv
+image_name: trl-post-training
+external_providers_dir: ./providers.d 
