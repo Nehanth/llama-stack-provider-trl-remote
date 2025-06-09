@@ -186,44 +186,12 @@ You should see your dataset listed with ID `test-dpo-dataset`.
 
 Launch a DPO training job using the REST API:
 
-**Basic Training (no model saving):**
-```bash
-curl -X POST http://localhost:8321/v1/post-training/preference-optimize \
-  -H "Content-Type: application/json" \
-  -d '{
-    "job_uuid": "dpo-training-001",
-    "model": "distilgpt2",
-    "finetuned_model": "my-dpo-model",
-    "algorithm_config": {
-      "type": "dpo",
-      "reward_scale": 1.0,
-      "reward_clip": 5.0,
-      "epsilon": 0.1,
-      "gamma": 0.99
-    },
-    "training_config": {
-      "n_epochs": 1,
-      "max_steps_per_epoch": 10,
-      "learning_rate": 1e-6,
-      "data_config": {
-        "dataset_id": "test-dpo-dataset-inline",
-        "batch_size": 2,
-        "shuffle": true,
-        "data_format": "instruct",
-        "train_split_percentage": 0.8
-      }
-    },
-    "hyperparam_search_config": {},
-    "logger_config": {}
-  }'
-```
-
 **Training with Model Saving:**
 ```bash
 curl -X POST http://localhost:8321/v1/post-training/preference-optimize \
   -H "Content-Type: application/json" \
   -d '{
-    "job_uuid": "dpo-training-with-checkpoints",
+    "job_uuid": "dpo-training-with-checkpoints-1e4",
     "model": "distilgpt2",
     "finetuned_model": "my-dpo-model",
     "checkpoint_dir": "./checkpoints",
@@ -237,7 +205,7 @@ curl -X POST http://localhost:8321/v1/post-training/preference-optimize \
     "training_config": {
       "n_epochs": 1,
       "max_steps_per_epoch": 10,
-      "learning_rate": 1e-6,
+      "learning_rate": 1e-4,
       "data_config": {
         "dataset_id": "test-dpo-dataset-inline",
         "batch_size": 2,
