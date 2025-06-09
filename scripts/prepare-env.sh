@@ -1,7 +1,4 @@
-#!/bin/bash
-set -e
-
-echo "🔧 Preparing TRL Provider environment..."
+#!/bin/sh
 
 # This script is used to create a virtual environment for the Llama Stack TRL Provider
 
@@ -19,6 +16,5 @@ pip install aiosqlite fastapi uvicorn
 
 pip install -e .
 
-echo "✅ Environment ready! All dependencies installed."
-echo ""
-echo "🚀 You can now run: ./scripts/run-direct.sh" 
+# Build the distribution
+llama stack build --config build.yaml 
