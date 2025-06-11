@@ -1,9 +1,3 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the terms described in the LICENSE file in
-# the root directory of this source tree.
-
 """
 TRL Provider Configuration
 ==========================
@@ -173,9 +167,9 @@ class TrlPostTrainingConfig(BaseModel):
             Dictionary containing sample configuration values
         """
         return {
-            "checkpoint_format": "huggingface",  # Use HuggingFace format (most compatible)
+            "checkpoint_format": "huggingface",  
             "distributed_backend": None,        # Single device only
-            "device": "cpu",                    # Use CPU (works everywhere)
+            "device": "cpu",                    
             "dpo_beta": 0.1,                   # Standard DPO beta value
             "use_reference_model": True        # Use reference model for stability
         } 

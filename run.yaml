@@ -1,9 +1,8 @@
 version: '2'
-image_name: llama-stack-trl
+image_name: trl-post-training
 apis:
 - post_training
 - datasetio
-- datasets
 providers:
   post_training:
   - provider_id: trl
