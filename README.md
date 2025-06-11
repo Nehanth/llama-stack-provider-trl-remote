@@ -13,23 +13,28 @@ A TRL (Transformer Reinforcement Learning) provider that integrates DPO (Direct 
 
 This provider wraps the external TRL (Transformer Reinforcement Learning) library to provide DPO (Direct Preference Optimization) training through Llama Stack's unified API. It allows you to train language models using human preference data to improve their alignment and response quality.
 
-**Key Features:**
-- ✅ DPO training with TRL library
-- ✅ Async job management with real-time status monitoring  
-- ✅ Checkpoint saving and artifact tracking
-- ✅ Resource usage monitoring
-- ✅ Single-node training optimized for Llama Stack
-
-**Note on SFT (Supervised Fine-Tuning):**
-This provider implements a `supervised_fine_tune()` method that raises `NotImplementedError`. This exists only to satisfy Llama Stack's PostTraining protocol requirements - all providers must implement both methods even if they don't support both training types. This TRL provider specializes in DPO training only.
-
 ## Getting Started
 
-📖 **For complete setup and usage instructions, see [how_to_run.md](how_to_run.md)**
+### Build and Run
 
-The guide covers:
-- Installation and environment setup
-- Starting the Llama Stack server  
+1. **Setup environment:**
+   ```bash
+   ./scripts/prepare-env.sh
+   ```
+
+2. **Start the server:**
+   ```bash
+   ./scripts/run-direct.sh
+   ```
+
+The server will be available at `http://localhost:8321`
+
+### Documentation
+
+For complete setup and usage instructions, see the documentation in the `how_to_use/` directory.
+
+The documentation covers:
+
 - Dataset registration and training data format
 - Running DPO training jobs
 - Monitoring training progress
@@ -46,11 +51,13 @@ llama-stack-provider-trl/
 │   ├── post_training.py                # Main provider implementation
 │   └── recipes/
 │       └── dpo_training_single_device.py  # Core DPO training logic
+├── how_to_use/                         # Documentation and examples
+│   ├── how_to_use.ipynb               # Interactive usage examples
+│   └── api.md                         # API documentation
 ├── providers.d/                        # Provider registration
 │   └── inline/post_training/trl.yaml   # Provider specification
 ├── pyproject.toml                      # Package configuration
 ├── run.yaml                           # Runtime configuration
-├── how_to_run.md                      # Complete setup guide
 └── README.md                          # This file
 ```
 
@@ -64,4 +71,4 @@ llama-stack-provider-trl/
 
 ---
 
-**For detailed instructions, troubleshooting, and examples, see [how_to_run.md](how_to_run.md)** 
+For detailed instructions, troubleshooting, and examples, see the documentation in the `how_to_use/` directory. 

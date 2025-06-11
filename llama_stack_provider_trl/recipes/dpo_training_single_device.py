@@ -1,9 +1,3 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the terms described in the LICENSE file in
-# the root directory of this source tree.
-
 """
 DPO Training Recipe for Single Device
 =====================================
@@ -20,19 +14,13 @@ It works by:
 3. Optimizing the model to prefer "chosen" responses over "rejected" ones
 4. Using a reference model to prevent the model from drifting too far from the original
 
-This implementation supports single-device training (CPU, single GPU, or MPS).
+This implementation supports single-device training (CPU, single GPU).
 """
 
 # Standard library imports
-import asyncio
 import gc
-import json
 import logging
-import multiprocessing
 import os
-import signal
-import sys
-import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -112,7 +100,7 @@ def get_memory_stats(device: torch.device) -> dict[str, Any]:
 
 def setup_torch_device(device_str: str) -> torch.device:
     """Initialize and validate PyTorch device for single-node DPO training."""
-    # Ensure single-node training only (Llama Stack requirement)
+    # Ensure single-node training only (Llama Stack requirement for now)
     if "WORLD_SIZE" in os.environ and int(os.environ.get("WORLD_SIZE", "1")) > 1:
         raise RuntimeError(
             "Multi-node training detected via WORLD_SIZE environment variable. "
@@ -413,7 +401,7 @@ class DPOTrainingSingleDevice:
             )
         
         # DPO typically uses lower learning rates than standard fine-tuning
-        lr = 1e-6
+        lr = 1e-4
         if config.optimizer_config:
             lr = config.optimizer_config.lr
             logger.info(f"Using custom learning rate: {lr}")
@@ -620,4 +608,3 @@ class DPOTrainingSingleDevice:
         """Clean up model from device memory."""
         if device_type == "cuda":
             torch.cuda.empty_cache()
-        # MPS and CPU cleanup handled by garbage collection 
