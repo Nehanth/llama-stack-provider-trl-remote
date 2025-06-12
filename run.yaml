@@ -8,7 +8,7 @@ providers:
   - provider_id: trl
     provider_type: inline::trl
     config:
-      device: "cpu"
+      device: "cuda"
       dpo_beta: 0.1
       use_reference_model: true
       max_seq_length: 2048
