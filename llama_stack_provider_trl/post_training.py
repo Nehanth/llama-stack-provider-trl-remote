@@ -24,18 +24,18 @@ from enum import Enum
 from typing import Any
 
 # Import Llama Stack API interfaces that our provider needs to interact with
-from llama_stack.apis.datasetio import DatasetIO    # For loading training datasets
-from llama_stack.apis.datasets import Datasets      # For dataset operations
+from llama_stack.apis.datasetio import DatasetIO    
+from llama_stack.apis.datasets import Datasets      
 from llama_stack.apis.post_training import (
-    AlgorithmConfig,                    # Base class for algorithm configurations
-    Checkpoint,                         # Represents a saved model checkpoint
-    DPOAlignmentConfig,                # Configuration for DPO algorithm
-    JobStatus,                         # Enum for job status (scheduled, running, completed, etc.)
-    ListPostTrainingJobsResponse,      # Response for listing all jobs
-    PostTrainingJob,                   # Represents a training job
-    PostTrainingJobArtifactsResponse,  # Response containing job artifacts (checkpoints)
-    PostTrainingJobStatusResponse,     # Response containing job status and metadata
-    TrainingConfig,                    # General training configuration
+    AlgorithmConfig,                    
+    Checkpoint,                         
+    DPOAlignmentConfig,                
+    JobStatus,                         
+    ListPostTrainingJobsResponse,      
+    PostTrainingJob,                   
+    PostTrainingJobArtifactsResponse,  
+    PostTrainingJobStatusResponse,     
+    TrainingConfig,                    
 )
 
 # Import our TRL-specific configuration
@@ -59,8 +59,8 @@ class TrainingArtifactType(Enum):
     Artifacts are files or data produced during training that need to be
     tracked and made available to users after training completes.
     """
-    CHECKPOINT = "checkpoint"        # Saved model weights and configuration
-    RESOURCES_STATS = "resources_stats"  # Memory usage, GPU utilization, etc.
+    CHECKPOINT = "checkpoint"        
+    RESOURCES_STATS = "resources_stats" 
 
 
 # Constant for identifying DPO training jobs in the scheduler
@@ -91,9 +91,9 @@ class TrlPostTrainingImpl:
     
     def __init__(
         self,
-        config: TrlPostTrainingConfig,  # Our TRL-specific configuration
-        datasetio_api: DatasetIO,       # API for loading datasets from storage
-        datasets: Datasets,             # API for dataset operations and transformations
+        config: TrlPostTrainingConfig,      
+        datasetio_api: DatasetIO,       
+        datasets: Datasets,             
     ) -> None:
         """
         Initialize the TRL post-training provider.
@@ -140,10 +140,10 @@ class TrlPostTrainingImpl:
             JobArtifact: Scheduler-compatible artifact representation
         """
         return JobArtifact(
-            type=TrainingArtifactType.CHECKPOINT.value,  # Mark as checkpoint artifact
-            name=checkpoint.identifier,                  # Use checkpoint ID as name
-            uri=checkpoint.path,                        # Path to saved checkpoint files
-            metadata=dict(checkpoint),                  # Include all checkpoint metadata
+            type=TrainingArtifactType.CHECKPOINT.value,     
+            name=checkpoint.identifier,                  
+            uri=checkpoint.path,                        
+            metadata=dict(checkpoint),                  
         )
 
     @staticmethod
@@ -162,9 +162,9 @@ class TrlPostTrainingImpl:
             JobArtifact: Scheduler-compatible artifact representation
         """
         return JobArtifact(
-            type=TrainingArtifactType.RESOURCES_STATS.value,  # Mark as resource stats
-            name=TrainingArtifactType.RESOURCES_STATS.value,  # Standard name for stats
-            metadata=resources_stats,                         # Store stats in metadata
+            type=TrainingArtifactType.RESOURCES_STATS.value,  
+            name=TrainingArtifactType.RESOURCES_STATS.value,  
+            metadata=resources_stats,                         
         )
 
     async def supervised_fine_tune(
@@ -215,14 +215,14 @@ class TrlPostTrainingImpl:
 
     async def preference_optimize(
         self,
-        job_uuid: str,                               # Unique ID for this training job
-        model: str,                                  # Base model to train (e.g., "distilgpt2")
-        finetuned_model: str,                       # Output model name (e.g., "my-dpo-model")
-        algorithm_config: DPOAlignmentConfig,       # DPO-specific configuration
-        training_config: TrainingConfig,            # General training settings
-        hyperparam_search_config: dict[str, Any],   # Hyperparameter search settings
-        logger_config: dict[str, Any],              # Logging configuration
-        checkpoint_dir: str | None = None,          # Directory to save checkpoints
+        job_uuid: str,                               
+        model: str,                                  
+        finetuned_model: str,                       
+        algorithm_config: DPOAlignmentConfig,       
+        training_config: TrainingConfig,            
+        hyperparam_search_config: dict[str, Any],   
+        logger_config: dict[str, Any],              
+        checkpoint_dir: str | None = None,          
     ) -> PostTrainingJob:
         """
         Start a DPO (Direct Preference Optimization) training job.
@@ -275,19 +275,19 @@ class TrlPostTrainingImpl:
             # The recipe contains all the actual training logic
             recipe = DPOTrainingSingleDevice(
                 job_uuid=job_uuid,
-                datasetio_api=self.datasetio_api,  # For loading datasets
-                datasets_api=self.datasets_api,    # For dataset operations
+                datasetio_api=self.datasetio_api,  
+                datasets_api=self.datasets_api,    
             )
 
             # Run the actual DPO training
             # This is where the main training work happens
             resources_allocated, checkpoints = await recipe.train(
-                model=model,                        # Base model to train (e.g., "distilgpt2")
-                output_dir=checkpoint_dir,          # Where to save results
-                job_uuid=job_uuid,                  # Job identifier
-                dpo_config=algorithm_config,        # DPO algorithm settings
-                config=training_config,             # General training settings
-                provider_config=self.config,        # TRL provider configuration
+                model=model,                        
+                output_dir=checkpoint_dir,          
+                job_uuid=job_uuid,                  
+                dpo_config=algorithm_config,        
+                config=training_config,             
+                provider_config=self.config,        
             )
 
             # Report resource usage statistics as an artifact

@@ -15,8 +15,6 @@ passed to the training logic to control how DPO training works.
 
 from typing import Any, Literal
 
-# Pydantic is used for configuration validation and type checking
-# BaseModel provides automatic validation of configuration values
 from pydantic import BaseModel
 
 

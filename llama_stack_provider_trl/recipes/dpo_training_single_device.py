@@ -165,8 +165,8 @@ class DPOTrainingSingleDevice:
     def __init__(
         self,
         job_uuid: str,
-        datasetio_api: DatasetIO,  # Required API for loading datasets from storage
-        datasets_api: Datasets,   # Required API for dataset operations
+        datasetio_api: DatasetIO,  
+        datasets_api: Datasets,   
     ) -> None:
         """
         Initialize the DPO training recipe.
@@ -325,11 +325,9 @@ class DPOTrainingSingleDevice:
         try:
             tokenizer = AutoTokenizer.from_pretrained(model, **provider_config.model_specific_config)
 
-            # Configure tokenizer for DPO training (CRITICAL FIX)
             if not tokenizer.pad_token:
                 tokenizer.pad_token = tokenizer.eos_token
 
-            # RIGHT padding for DPO training (not left!)
             tokenizer.padding_side = "right"
             tokenizer.truncation_side = "right"
             tokenizer.model_max_length = provider_config.max_seq_length

@@ -17,20 +17,15 @@ This follows the standard Llama Stack provider pattern used by all inline provid
 
 from typing import Any
 
-# Import the Api enum which defines all the different APIs in Llama Stack
-# (like datasetio, datasets, post_training, inference, etc.)
+
 from llama_stack.distribution.datatypes import Api
 
-# Import our configuration class that defines all the settings for DPO training
 from .config import TrlPostTrainingConfig
-
-# Comment explaining what this provider does
-# TRL = Transformer Reinforcement Learning, used for preference-based training like DPO
 
 
 async def get_provider_impl(
-    config: TrlPostTrainingConfig,  # Our TRL-specific configuration (device, DPO settings, etc.)
-    deps: dict[Api, Any],          # Dependencies from Llama Stack (datasets, datasetio APIs)
+    config: TrlPostTrainingConfig,  
+    deps: dict[Api, Any],          
 ):
     """
     Create and configure a TRL provider instance.
@@ -57,8 +52,7 @@ async def get_provider_impl(
         This function is async even though it doesn't await anything currently,
         because provider initialization might need async operations in the future.
     """
-    # Import our main implementation class here (not at top level) to avoid
-    # circular import issues and to only import when actually needed
+
     from .post_training import TrlPostTrainingImpl
 
     # Create an instance of our TRL provider with:
@@ -66,11 +60,9 @@ async def get_provider_impl(
     # - The datasetio API for loading training data
     # - The datasets API for dataset operations
     impl = TrlPostTrainingImpl(
-        config,                    # TRL-specific configuration
-        deps[Api.datasetio],      # API for loading datasets from storage
-        deps[Api.datasets],       # API for dataset operations
+        config,                    
+        deps[Api.datasetio],      
+        deps[Api.datasets],       
     )
     
-    # Return the configured provider instance
-    # Llama Stack will use this instance to handle DPO training requests
     return impl 
