@@ -1,5 +1,5 @@
 adapter:
-  adapter_type: trl_remote
+  adapter_type: trl
   pip_packages:
     - aiohttp
   config_class: llama_stack_provider_trl_remote.config.TrlRemoteConfig

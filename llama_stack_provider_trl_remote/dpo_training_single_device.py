@@ -55,7 +55,7 @@ from llama_stack.apis.post_training import (
     TrainingConfig,
 )
 
-from ..config import TrlPostTrainingConfig
+from config import TrlPostTrainingConfig
 
 logger = logging.getLogger(__name__)
 
@@ -563,10 +563,11 @@ class DPOTrainingSingleDevice:
             memory_stats["after_training"] = get_memory_stats(device)
 
             # Save final DPO model
-            checkpoints = None
+            checkpoints = []
             if output_dir_path:
                 logger.info("Saving final DPO model")
                 save_path = output_dir_path / "dpo_model"
+                assert trainer.model is not None, "Trainer model should not be None"
                 trainer.model.save_pretrained(save_path)
                 tokenizer.save_pretrained(save_path)
                 logger.info(f"DPO model saved to {save_path}")
@@ -605,4 +606,4 @@ class DPOTrainingSingleDevice:
     def _cleanup_model(self, model: AutoModelForCausalLM, device_type: str) -> None:
         """Clean up model from device memory."""
         if device_type == "cuda":
-            torch.cuda.empty_cache()
+            torch.cuda.empty_cache() 

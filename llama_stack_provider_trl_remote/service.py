@@ -2,300 +2,195 @@
 TRL Remote Training Service
 ===========================
 
-This FastAPI service wraps the existing inline TRL provider and exposes it over HTTP.
-It reuses all the same training logic, recipes, and configuration but runs as a
-standalone service that can be deployed separately.
-
-The service:
-1. Creates an instance of the existing TrlPostTrainingImpl
-2. Exposes its methods as HTTP endpoints
-3. Handles request/response serialization
-4. Provides health checks and service management
+FastAPI service that wraps the TRL inline provider and exposes it via HTTP.
+This allows running TRL training jobs remotely while reusing all the existing 
+training logic, recipes, and configurations.
 """
 
 import asyncio
-import logging
-from contextlib import asynccontextmanager
-from typing import Any
+import json
+import tempfile
+import os
+from typing import Any, Dict
 
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-
-# Reuse existing TRL provider components
-from llama_stack_provider_trl import get_provider_impl
-from llama_stack_provider_trl.config import TrlPostTrainingConfig
+from config import TrlPostTrainingConfig
+from dpo_training_single_device import DPOTrainingSingleDevice
 from llama_stack.apis.post_training import (
-    AlgorithmConfig,
     DPOAlignmentConfig,
-    ListPostTrainingJobsResponse,
-    PostTrainingJob,
-    PostTrainingJobArtifactsResponse,
-    PostTrainingJobStatusResponse,
     TrainingConfig,
 )
 
-# Mock APIs for standalone service (replace with actual implementations)
-from llama_stack.apis.datasetio import DatasetIO
-from llama_stack.apis.datasets import Datasets
-from llama_stack.distribution.datatypes import Api
 
-logger = logging.getLogger(__name__)
+# === REMOTE DATASET HANDLER ===
 
-# Global provider instance
+class RemoteDatasetHandler:
+    """Simple handler for dataset data passed from the client"""
+    
+    def __init__(self, dataset_data: list):
+        self.dataset_data = dataset_data
+    
+    async def get_rows(self, dataset_id: str, limit: int = -1):
+        """Return dataset rows directly"""
+        rows = self.dataset_data
+        if limit > 0:
+            rows = rows[:limit]
+        return rows
+
+
+# === FASTAPI SERVICE ===
+
+app = FastAPI(title="TRL Remote Training Service")
+
+# Global provider instance (will be initialized on startup)
 trl_provider = None
 
 
-# Request/Response Models for HTTP API
-class TrainingRequest(BaseModel):
-    """Base training request model."""
-    job_uuid: str
-    model: str
-    provider_config: dict | None = None  # TrlPostTrainingConfig as dict
-    checkpoint_dir: str | None = None
+@app.on_event("startup")
+async def startup_event():
+    """Initialize the TRL provider on service startup"""
+    print("Starting TRL Remote Training Service...")
+    print("Service initialized successfully")
 
 
-class SupervisedFinetuneRequest(TrainingRequest):
-    """Request model for supervised fine-tuning."""
-    training_config: dict  # TrainingConfig as dict
-    hyperparam_search_config: dict
-    logger_config: dict
-    algorithm_config: dict | None = None
-
-
-class PreferenceOptimizeRequest(TrainingRequest):
-    """Request model for DPO training - accepts raw DPO algorithm config."""
-    finetuned_model: str
-    algorithm_config: dict  # Raw DPO config - can be DPO format from examples.ipynb
-    training_config: dict  # TrainingConfig as dict
-    hyperparam_search_config: dict
-    logger_config: dict
-
-
-class JobRequest(BaseModel):
-    """Request model for job operations."""
-    job_uuid: str
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """
-    FastAPI lifespan manager to initialize and cleanup the TRL provider.
-    """
-    global trl_provider
-    
-    # Initialize the TRL provider using existing components
-    logger.info("Initializing TRL provider service...")
-    
-    # Create default configuration (can be overridden per request)
-    config = TrlPostTrainingConfig()
-    
-    # Create mock API dependencies for standalone service
-    # In production, these would be actual API clients
-    datasetio_api = MockDatasetIO()
-    datasets_api = MockDatasets()
-    
-    deps = {
-        Api.datasetio: datasetio_api,
-        Api.datasets: datasets_api,
-    }
-    
-    # Create provider instance using existing get_provider_impl function
-    trl_provider = await get_provider_impl(config, deps)
-    
-    logger.info("TRL provider service initialized successfully")
-    
-    yield
-    
-    # Cleanup
-    logger.info("Shutting down TRL provider service...")
-    if trl_provider:
-        await trl_provider.shutdown()
-    logger.info("TRL provider service shutdown complete")
-
-
-# Create FastAPI app with lifespan management
-app = FastAPI(
-    title="TRL Training Service",
-    description="Remote TRL (Transformer Reinforcement Learning) training service for DPO",
-    version="1.0.0",
-    lifespan=lifespan
-)
-
-
-# Health check endpoint
 @app.get("/health")
 async def health_check():
-    """Health check endpoint for the remote service."""
+    """Health check endpoint"""
     return {"status": "healthy", "service": "trl-training-service"}
-
-
-# PostTraining API Endpoints - reuse existing provider methods
-@app.post("/supervised-fine-tune")
-async def supervised_fine_tune(request: SupervisedFinetuneRequest):
-    """Forward supervised fine-tuning to TRL provider."""
-    if not trl_provider:
-        raise HTTPException(status_code=500, detail="TRL provider not initialized")
-        
-    try:
-        # Properly reconstruct Pydantic objects from JSON data
-        from typing import cast
-        training_config = TrainingConfig(**request.training_config)
-        # AlgorithmConfig is a Union type, so we pass through as dict and cast for type checking
-        algorithm_config = cast(AlgorithmConfig, request.algorithm_config) if request.algorithm_config else None
-        
-        # Call the existing provider method  
-        result = await trl_provider.supervised_fine_tune(
-            job_uuid=request.job_uuid,
-            training_config=training_config,
-            hyperparam_search_config=request.hyperparam_search_config,
-            logger_config=request.logger_config,
-            model=request.model,
-            checkpoint_dir=request.checkpoint_dir,
-            algorithm_config=algorithm_config,
-        )
-        
-        return result.dict() if hasattr(result, 'dict') else result
-        
-    except Exception as e:
-        logger.error(f"Supervised fine-tuning failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/preference-optimize")
-async def preference_optimize(request: PreferenceOptimizeRequest):
-    """Forward DPO training to TRL provider."""
-    if not trl_provider:
-        raise HTTPException(status_code=500, detail="TRL provider not initialized")
-        
-    try:
-        # Properly reconstruct Pydantic objects from JSON data
-        
-        # Reconstruct TrainingConfig from dict
-        training_config = TrainingConfig(**request.training_config)
-        
-        # Reconstruct AlgorithmConfig from dict
-        # The algorithm config should be a DPO config when preference_optimize is called
-        algorithm_config = DPOAlignmentConfig(**request.algorithm_config)
-        
-        # Update provider config if provided
-        if request.provider_config:
-            # Create new config with provided settings
-            provider_config = TrlPostTrainingConfig(**request.provider_config)
-            # Update the provider's config (simplified - in production might need provider recreation)
-            trl_provider.config = provider_config
-        
-        # Call the existing provider method
-        result = await trl_provider.preference_optimize(
-            job_uuid=request.job_uuid,
-            model=request.model,
-            finetuned_model=request.finetuned_model,
-            algorithm_config=algorithm_config,
-            training_config=training_config,
-            hyperparam_search_config=request.hyperparam_search_config,
-            logger_config=request.logger_config,
-            checkpoint_dir=request.checkpoint_dir,
-        )
-        
-        return result.dict() if hasattr(result, 'dict') else result
-        
-    except Exception as e:
-        logger.error(f"DPO training failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/training-jobs")
 async def get_training_jobs():
-    """Get list of training jobs."""
-    if not trl_provider:
-        raise HTTPException(status_code=500, detail="TRL provider not initialized")
-        
-    try:
-        result = await trl_provider.get_training_jobs()
-        return result.dict() if hasattr(result, 'dict') else result
-    except Exception as e:
-        logger.error(f"Getting training jobs failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+    """Get list of training jobs. Returns empty list since jobs are executed synchronously."""
+    return {"data": []}
 
 
 @app.get("/training-job-status")
 async def get_training_job_status(job_uuid: str):
-    """Get training job status."""
-    if not trl_provider:
-        raise HTTPException(status_code=500, detail="TRL provider not initialized")
-        
-    try:
-        result = await trl_provider.get_training_job_status(job_uuid)
-        if result is None:
-            raise HTTPException(status_code=404, detail="Job not found")
-        return result.dict() if hasattr(result, 'dict') else result
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Getting job status failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+    """Get training job status. Jobs are executed synchronously so this returns None."""
+    return None
 
 
 @app.post("/cancel-training-job")
-async def cancel_training_job(request: JobRequest):
-    """Cancel training job."""
-    if not trl_provider:
-        raise HTTPException(status_code=500, detail="TRL provider not initialized")
-        
-    try:
-        await trl_provider.cancel_training_job(request.job_uuid)
-        return {"status": "cancelled", "job_uuid": request.job_uuid}
-    except Exception as e:
-        logger.error(f"Cancelling job failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+async def cancel_training_job(request: dict):
+    """Cancel training job. Jobs run synchronously and cannot be cancelled."""
+    return {"status": "not_implemented", "message": "Synchronous jobs cannot be cancelled"}
 
 
 @app.get("/training-job-artifacts")
 async def get_training_job_artifacts(job_uuid: str):
-    """Get training job artifacts."""
-    if not trl_provider:
-        raise HTTPException(status_code=500, detail="TRL provider not initialized")
-        
+    """Get training job artifacts. Artifacts are saved to checkpoint directory."""
+    return None
+
+
+@app.post("/preference-optimize")
+async def preference_optimize_endpoint(request: dict):
+    """Handle DPO training request from client"""
     try:
-        result = await trl_provider.get_training_job_artifacts(job_uuid)
-        if result is None:
-            raise HTTPException(status_code=404, detail="Job not found")
-        return result.dict() if hasattr(result, 'dict') else result
-    except HTTPException:
-        raise
+        # Extract request data
+        job_uuid = request.get("job_uuid")
+        model = request.get("model")
+        finetuned_model = request.get("finetuned_model")
+        algorithm_config_dict = request.get("algorithm_config", {})
+        training_config_dict = request.get("training_config", {})
+        hyperparam_search_config = request.get("hyperparam_search_config", {})
+        logger_config_dict = request.get("logger_config", {})
+        checkpoint_dir = request.get("checkpoint_dir")
+        provider_config_dict = request.get("provider_config", {})
+        dataset_data = request.get("dataset_data")
+        
+        # Create provider config
+        config = TrlPostTrainingConfig(**provider_config_dict) if provider_config_dict else TrlPostTrainingConfig()
+        
+        # Create dataset handler if data provided
+        if dataset_data:
+            handler = RemoteDatasetHandler(dataset_data)
+        else:
+            handler = None
+        
+        # Create mock deps for the provider
+        from llama_stack.distribution.datatypes import Api
+        
+        class MockDatasetIO:
+            async def iterrows(self, dataset_id: str, limit: int = -1):
+                if handler:
+                    rows = await handler.get_rows(dataset_id, limit)
+                    class MockResponse:
+                        def __init__(self, data):
+                            self.data = data
+                    return MockResponse(rows)
+                else:
+                    raise ValueError(f"No dataset data available for {dataset_id}")
+        
+        class MockDatasets:
+            async def get_dataset(self, dataset_id: str):
+                return {"identifier": dataset_id, "data": dataset_data or []}
+        
+        deps = {
+            Api.datasetio: MockDatasetIO(),
+            Api.datasets: MockDatasets()
+        }
+        
+        # Validate required parameters first
+        if not job_uuid:
+            raise HTTPException(status_code=400, detail="job_uuid is required")
+        if not model:
+            raise HTTPException(status_code=400, detail="model is required")
+        if not finetuned_model:
+            raise HTTPException(status_code=400, detail="finetuned_model is required")
+        
+        # Create DPO training instance with direct dataset access
+        dpo_trainer = DPOTrainingSingleDevice(
+            job_uuid=job_uuid,
+            datasetio_api=deps[Api.datasetio],
+            datasets_api=deps[Api.datasets]
+        )
+        
+        # Create algorithm config
+        algorithm_config = DPOAlignmentConfig(
+            reward_scale=algorithm_config_dict.get("reward_scale", 1.0),
+            reward_clip=algorithm_config_dict.get("reward_clip", 5.0),
+            epsilon=algorithm_config_dict.get("epsilon", 0.1),
+            gamma=algorithm_config_dict.get("gamma", 0.99)
+        )
+        
+        # Create training config using the dict directly
+        training_config = TrainingConfig(**training_config_dict) if training_config_dict else None
+        
+        if not training_config:
+            raise HTTPException(status_code=400, detail="training_config is required")
+        
+        # Execute DPO training directly
+        memory_stats, checkpoints = await dpo_trainer.train(
+            model=model,
+            output_dir=checkpoint_dir,
+            job_uuid=job_uuid,
+            dpo_config=algorithm_config,
+            config=training_config,
+            provider_config=config,
+        )
+        
+        # Create result similar to what the inline provider would return
+        class TrainingResult:
+            def __init__(self, job_uuid):
+                self.job_uuid = job_uuid
+        
+        result = TrainingResult(job_uuid)
+        
+        return {"job_uuid": result.job_uuid}
+        
     except Exception as e:
-        logger.error(f"Getting job artifacts failed: {str(e)}")
+        print(f"Error in preference_optimize: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
-
-
-# Mock API implementations for standalone service
-class MockDatasetIO:
-    """Mock DatasetIO for standalone service."""
-    async def iterrows(self, dataset_id: str, limit: int = -1):
-        # In production, this would connect to actual dataset storage
-        raise NotImplementedError("Mock DatasetIO - implement with actual dataset source")
-
-
-class MockDatasets:
-    """Mock Datasets for standalone service."""
-    async def get_dataset(self, dataset_id: str):
-        # In production, this would connect to actual dataset API
-        raise NotImplementedError("Mock Datasets - implement with actual dataset API")
 
 
 if __name__ == "__main__":
     import uvicorn
-    
-    # Configure logging
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
-    
-    # Run the service
     uvicorn.run(
         "service:app",
         host="0.0.0.0",
         port=8080,
-        reload=True,
-        log_level="info"
+        reload=False  # Disable auto-reload to stop the chaos
     ) 
