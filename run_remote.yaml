@@ -1,0 +1,39 @@
+version: '2'
+image_name: trl-remote-client
+apis:
+- post_training
+- datasetio
+providers:
+  post_training:
+  - provider_id: trl_remote
+    provider_type: remote::trl_remote
+    config:
+      base_url: "http://localhost:8080"
+      timeout: 3600
+      connect_timeout: 30
+      max_retries: 3
+      retry_delay: 5
+      training_config:
+        device: "cuda"
+        dpo_beta: 0.1
+        use_reference_model: true
+        max_seq_length: 2048
+        gradient_checkpointing: false
+        logging_steps: 10
+        warmup_ratio: 0.1
+        weight_decay: 0.01
+  datasetio:
+  - provider_id: localfs
+    provider_type: inline::localfs
+    config:
+      kvstore:
+        type: sqlite
+        db_path: /tmp/llama_stack_provider_trl_remote/datasetio.db
+external_providers_dir: ./providers.d
+metadata_store:
+  type: sqlite
+  db_path: /tmp/llama_stack_provider_trl_remote/registry.db
+models: []
+shields: []
+server:
+  port: 8321 

@@ -1,0 +1,8 @@
+adapter:
+  adapter_type: trl_remote
+  pip_packages:
+    - aiohttp
+  config_class: llama_stack_provider_trl_remote.config.TrlRemoteConfig
+  module: llama_stack_provider_trl_remote
+api_dependencies: []
+optional_api_dependencies: [] 
