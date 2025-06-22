@@ -266,36 +266,73 @@ class TrlRemoteAdapter:
         
     async def get_training_jobs(self) -> ListPostTrainingJobsResponse:
         """
-        Get list of training jobs.
-        
-        Note: Remote service doesn't implement job tracking. The training job
-        lifecycle is managed by the Llama Stack client side. We return an empty list.
+        Get list of training jobs from remote service.
         """
-        return ListPostTrainingJobsResponse(data=[])
+        try:
+            response_data = await self._make_request("GET", "/training-jobs")
+            jobs_data = response_data.get("data", [])
+            
+            # Convert to PostTrainingJob objects
+            jobs = []
+            for job_data in jobs_data:
+                job = PostTrainingJob(
+                    job_uuid=job_data.get("job_uuid", ""),
+                    # Add other fields as needed
+                )
+                jobs.append(job)
+            
+            return ListPostTrainingJobsResponse(data=jobs)
+        except Exception as e:
+            print(f"Error getting training jobs: {e}")
+            return ListPostTrainingJobsResponse(data=[])
         
     async def get_training_job_status(self, job_uuid: str) -> PostTrainingJobStatusResponse | None:
         """
-        Get training job status.
-        
-        Note: Remote service doesn't implement job status tracking. The job
-        lifecycle is managed by the Llama Stack client side. Jobs complete synchronously.
+        Get training job status from remote service.
         """
-        return None
+        try:
+            response_data = await self._make_request("GET", f"/training-job-status?job_uuid={job_uuid}")
+            
+            if not response_data:
+                return None
+                
+            return PostTrainingJobStatusResponse(
+                job_uuid=response_data.get("job_uuid", ""),
+                status=response_data.get("status", "unknown"),
+                scheduled_at=response_data.get("scheduled_at"),
+                started_at=response_data.get("started_at"),
+                completed_at=response_data.get("completed_at"),
+                resources_allocated=response_data.get("resources_allocated"),
+                checkpoints=response_data.get("checkpoints", [])
+            )
+        except Exception as e:
+            print(f"Error getting job status for {job_uuid}: {e}")
+            return None
         
     async def cancel_training_job(self, job_uuid: str) -> None:
         """
-        Cancel training job.
-        
-        Note: Remote service doesn't implement job cancellation. Training
-        jobs complete synchronously and cannot be cancelled.
+        Cancel training job on remote service.
         """
-        pass
+        try:
+            await self._make_request("POST", "/cancel-training-job", {"job_uuid": job_uuid})
+        except Exception as e:
+            print(f"Error cancelling job {job_uuid}: {e}")
+            # Don't raise since cancel is best-effort
         
     async def get_training_job_artifacts(self, job_uuid: str) -> PostTrainingJobArtifactsResponse | None:
         """
-        Get training job artifacts.
-        
-        Note: Remote service doesn't implement artifact tracking. Artifacts
-        are managed by the training process directly.
+        Get training job artifacts from remote service.
         """
-        return None 
+        try:
+            response_data = await self._make_request("GET", f"/training-job-artifacts?job_uuid={job_uuid}")
+            
+            if not response_data:
+                return None
+                
+            return PostTrainingJobArtifactsResponse(
+                job_uuid=response_data.get("job_uuid", ""),
+                checkpoints=response_data.get("checkpoints", [])
+            )
+        except Exception as e:
+            print(f"Error getting job artifacts for {job_uuid}: {e}")
+            return None 

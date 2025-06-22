@@ -10,9 +10,11 @@ distribution_spec:
     - aiohttp
     - fastapi
     - uvicorn
+    - trl==0.18.1
+    - transformers==4.52.4
   providers:
     post_training:
-      - remote::trl_remote
+      - remote::trl
     datasetio:
       - inline::localfs
 apis:

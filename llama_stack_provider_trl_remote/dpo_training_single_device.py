@@ -448,7 +448,7 @@ class DPOTrainingSingleDevice:
             
             # Checkpointing
             save_strategy=save_strategy,
-            save_steps=save_steps if save_strategy == "steps" else None,
+            save_steps=float(save_steps) if save_strategy == "steps" and save_steps is not None else None,
             load_best_model_at_end=True if output_dir_path else False,
             metric_for_best_model="eval_loss",
             greater_is_better=False,

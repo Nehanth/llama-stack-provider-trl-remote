@@ -1,7 +1,8 @@
 [project]
 dependencies = [
     "llama-stack>=0.2.3",
-    "llama-stack-provider-trl",  # Reuse inline provider components
+    "trl==0.18.1",
+    "transformers==4.52.4", 
     "aiohttp",
     "fastapi",
     "uvicorn",
