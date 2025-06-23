@@ -14,6 +14,7 @@ venv/
 
 # Training artifacts
 checkpoints/
+llama_stack_provider_trl_remote/job_queue/
 job_queue/
 *.pth
 *.safetensors

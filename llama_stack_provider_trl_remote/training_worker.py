@@ -17,7 +17,7 @@ import asyncio
 from pathlib import Path
 
 # Import our training recipe
-from recipes.dpo_training_unified import DPOTrainingUnified
+from recipes.dpo_training_multicard import DPOTrainingMulticard
 from config import TrlPostTrainingConfig
 from llama_stack.apis.post_training import (
     DPOAlignmentConfig,
@@ -77,7 +77,7 @@ async def main():
         
         # Create DPO trainer with dataset data
         print(f"Rank {local_rank}: Initializing DPO trainer for {world_size}-GPU training")
-        dpo_trainer = DPOTrainingUnified(
+        dpo_trainer = DPOTrainingMulticard(
             job_uuid=job_uuid,
             dataset_data=dataset_data
         )

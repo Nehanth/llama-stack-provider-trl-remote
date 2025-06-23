@@ -1,5 +1,5 @@
-from .dpo_training_unified import DPOTrainingUnified
+from .dpo_training_multicard import DPOTrainingMulticard
 
 __all__ = [
-    "DPOTrainingUnified"
+    "DPOTrainingMulticard"
 ] 

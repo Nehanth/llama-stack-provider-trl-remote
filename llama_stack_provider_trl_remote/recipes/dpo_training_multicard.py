@@ -1,9 +1,9 @@
 """
-DPO Training Recipe for Multi-GPU (FSDP) - FULLY CLEANED UP VERSION
-====================================================================
+DPO Multi-Card Training Recipe
+=========================================================
 
 This file implements DPO (Direct Preference Optimization) training using HuggingFace's TRL library
-with native FSDP support.
+with native FSDP support for multi-GPU (multi-card) training.
 
 """
 
@@ -39,9 +39,9 @@ from config import TrlPostTrainingConfig
 logger = logging.getLogger(__name__)
 
 
-class DPOTrainingUnified:
+class DPOTrainingMulticard:
     """
-    UNIFIED DPO training using TRL's native FSDP support.
+    Multi-card DPO training using TRL's native FSDP support.
     
     Automatically handles both single-device and multi-GPU training!
     - WORLD_SIZE=1: Single-device training
@@ -361,6 +361,10 @@ class DPOTrainingUnified:
             if output_dir_path:
                 logger.info("Saving final DPO model")
                 save_path = output_dir_path / "dpo_model"
+                
+                # Create checkpoint directory if it doesn't exist
+                save_path.mkdir(parents=True, exist_ok=True)
+                logger.info(f"Created checkpoint directory: {save_path}")
                 
                 # TRL handles FSDP model saving automatically
                 trainer.save_model(str(save_path))

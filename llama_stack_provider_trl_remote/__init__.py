@@ -3,6 +3,7 @@ TRL Remote Provider Entry Point
 ===============================
 
 This file serves as the entry point for the TRL Remote Provider adapter.
+
 When Llama Stack needs to create an instance of the remote TRL provider, it calls the function
 in this file to get a properly configured adapter instance.
 """

@@ -194,11 +194,7 @@ class TrlRemoteConfig(BaseModel):
     # Delay between retry attempts (seconds)
     retry_delay: int = 5
     
-    # === REUSED TRL TRAINING CONFIGURATION ===
-    
-    # Reuse all the existing TRL training configuration
-    # This ensures the remote service gets exactly the same training parameters
-    # as the inline provider would use
+
     training_config: TrlPostTrainingConfig = TrlPostTrainingConfig()
     
     @classmethod
@@ -206,13 +202,13 @@ class TrlRemoteConfig(BaseModel):
         """
         Provide a sample configuration for remote TRL provider.
         
-        This reuses the inline provider's sample config and adds remote settings.
+        This uses the base TRL training config and adds remote HTTP settings.
         """
-        # Get the sample config from the inline provider
-        inline_sample = TrlPostTrainingConfig.sample_run_config(__distro_dir__, **kwargs)
+        # Get the base training configuration
+        base_config = TrlPostTrainingConfig.sample_run_config(__distro_dir__, **kwargs)
         
         return {
             "base_url": "http://localhost:8080",
             "timeout": 3600,
-            "training_config": inline_sample
+            "training_config": base_config
         } 

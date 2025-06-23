@@ -8,7 +8,7 @@ to a remote TRL training service over HTTP.
 The adapter acts as an HTTP client that:
 1. Receives PostTraining method calls from Llama Stack
 2. Forwards them as HTTP requests to the remote TRL service
-3. Returns responses in the same format as the inline provider
+3. Returns the responses from the remote TRL service
 """
 
 import asyncio
