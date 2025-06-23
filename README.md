@@ -48,6 +48,17 @@ The documentation covers:
 - Configuration options
 - Troubleshooting common issues
 
+### GPU Monitoring
+
+For real-time GPU usage monitoring during multi-GPU training, use `nvitop`:
+
+```bash
+pip install nvitop
+nvitop
+```
+
+This provides a real-time view of GPU utilization, memory usage, and running processes across all available GPUs during DPO training.
+
 ## Project Structure
 
 ```
