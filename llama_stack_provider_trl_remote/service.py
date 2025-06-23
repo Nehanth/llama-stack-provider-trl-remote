@@ -13,13 +13,14 @@ import asyncio
 import json
 import tempfile
 import os
+import concurrent.futures
 from typing import Any, Dict, Optional
 from datetime import datetime, timezone
 from enum import Enum
 
 from fastapi import FastAPI, HTTPException
 from config import TrlPostTrainingConfig
-from dpo_training_single_device import DPOTrainingSingleDevice
+from recipes import DPOTrainingUnified
 from llama_stack.apis.post_training import (
     DPOAlignmentConfig,
     TrainingConfig,
@@ -115,12 +116,8 @@ class JobManager:
         """List all jobs"""
         return list(self.jobs.values())
         
-    async def execute_training(
-        self,
-        job: TrainingJob,
-        training_params: dict
-    ):
-        """Execute training in background task"""
+    def _run_training_sync(self, job: TrainingJob, training_params: dict):
+        """Synchronous training function to run in thread pool"""
         try:
             job.start()
             print(f"Starting training job {job.job_uuid}")
@@ -133,48 +130,32 @@ class JobManager:
             provider_config = training_params["provider_config"]
             dataset_data = training_params["dataset_data"]
             
-            # Create dataset handler
-            handler = RemoteDatasetHandler(dataset_data) if dataset_data else None
+            # Use dataset data directly - no mock layer needed
             
-            # Create mock dependencies
-            from llama_stack.distribution.datatypes import Api
+            # Create unified DPO trainer (handles both single and multi-GPU automatically)
+            world_size = int(os.environ.get("WORLD_SIZE", 1))
+            print(f"Using unified DPO trainer (WORLD_SIZE={world_size})")
             
-            class MockDatasetIO:
-                async def iterrows(self, dataset_id: str, limit: int = -1):
-                    if handler:
-                        rows = await handler.get_rows(dataset_id, limit)
-                        class MockResponse:
-                            def __init__(self, data):
-                                self.data = data
-                        return MockResponse(rows)
-                    else:
-                        raise ValueError(f"No dataset data available for {dataset_id}")
-            
-            class MockDatasets:
-                async def get_dataset(self, dataset_id: str):
-                    return {"identifier": dataset_id, "data": dataset_data or []}
-            
-            deps = {
-                Api.datasetio: MockDatasetIO(),
-                Api.datasets: MockDatasets()
-            }
-            
-            # Create DPO trainer
-            dpo_trainer = DPOTrainingSingleDevice(
+            dpo_trainer = DPOTrainingUnified(
                 job_uuid=job.job_uuid,
-                datasetio_api=deps[Api.datasetio],
-                datasets_api=deps[Api.datasets]
+                dataset_data=dataset_data
             )
             
-            # Execute training
-            memory_stats, checkpoints = await dpo_trainer.train(
+            # Execute training (synchronous)
+            import asyncio
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            memory_stats, checkpoints = loop.run_until_complete(dpo_trainer.train(
                 model=model,
                 output_dir=checkpoint_dir,
                 job_uuid=job.job_uuid,
                 dpo_config=algorithm_config,
                 config=training_config,
                 provider_config=provider_config,
-            )
+            ))
+            
+            loop.close()
             
             # Mark job as completed
             job.complete(checkpoints)
@@ -187,21 +168,25 @@ class JobManager:
             import traceback
             traceback.print_exc()
 
+    async def execute_training(
+        self,
+        job: TrainingJob,
+        training_params: dict
+    ):
+        """Execute training in background thread pool to keep server responsive"""
+        loop = asyncio.get_event_loop()
+        
+        # Use thread pool executor for CPU-bound training
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            await loop.run_in_executor(
+                executor,
+                self._run_training_sync,
+                job,
+                training_params
+            )
 
-# === REMOTE DATASET HANDLER ===
 
-class RemoteDatasetHandler:
-    """Simple handler for dataset data passed from the client"""
-    
-    def __init__(self, dataset_data: list):
-        self.dataset_data = dataset_data
-    
-    async def get_rows(self, dataset_id: str, limit: int = -1):
-        """Return dataset rows directly"""
-        rows = self.dataset_data
-        if limit > 0:
-            rows = rows[:limit]
-        return rows
+# No more mock/handler classes needed - dataset_data passed directly
 
 
 # === FASTAPI SERVICE ===
@@ -383,9 +368,36 @@ async def preference_optimize_endpoint(request: dict):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(
-        "service:app",
-        host="0.0.0.0",
-        port=8080,
-        reload=False
-    ) 
+    
+    # Handle distributed training: only rank 0 runs the FastAPI server
+    local_rank = int(os.environ.get("LOCAL_RANK", 0))
+    world_size = int(os.environ.get("WORLD_SIZE", 1))
+    
+    if world_size > 1:
+        print(f"Distributed training detected: WORLD_SIZE={world_size}, LOCAL_RANK={local_rank}")
+        
+        if local_rank == 0:
+            print("Rank 0: Starting FastAPI server on port 8080")
+            uvicorn.run(
+                "service:app",
+                host="0.0.0.0",
+                port=8080,
+                reload=False
+            )
+        else:
+            print(f"Rank {local_rank}: Waiting for training jobs (no HTTP server)")
+            # Keep process alive to participate in distributed training when needed
+            import time
+            try:
+                while True:
+                    time.sleep(1)
+            except KeyboardInterrupt:
+                print(f"Rank {local_rank}: Shutting down")
+    else:
+        print("Single-device mode: Starting FastAPI server on port 8080")
+        uvicorn.run(
+            "service:app",
+            host="0.0.0.0",
+            port=8080,
+            reload=False
+        ) 
