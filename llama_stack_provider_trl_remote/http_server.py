@@ -4,11 +4,11 @@ TRL Remote HTTP Server
 ======================
 
 Standalone FastAPI server that accepts training jobs and launches
-8-GPU distributed training via torchrun when needed.
+multi-GPU distributed training via torchrun when needed.
 
 Architecture:
 - HTTP Server (this file): Accepts jobs, manages job queue
-- Training Workers: 8-GPU torchrun processes that execute training
+- Training Workers: Multi-GPU torchrun processes that execute training
 - Communication: Shared job files and status files
 """
 
@@ -23,6 +23,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
+import torch
 from fastapi import FastAPI, HTTPException
 
 # Job status tracking
@@ -130,15 +131,20 @@ class JobManager:
     async def submit_training_job(self, job: TrainingJob, training_params: dict):
         """Submit job to distributed training workers"""
         try:
+            # Detect available GPUs dynamically
+            num_gpus = torch.cuda.device_count()
+            if num_gpus == 0:
+                raise RuntimeError("No CUDA GPUs available for training")
+            
             # Write job file for workers to pick up
             job_file = self.job_queue_dir / f"{job.job_uuid}.json"
             with open(job_file, 'w') as f:
                 json.dump(training_params, f, indent=2)
             
-            # Launch 8-GPU torchrun workers
+            # Launch multi-GPU torchrun workers (dynamic GPU count)
             cmd = [
                 "torchrun",
-                "--nproc_per_node=8",
+                f"--nproc_per_node={num_gpus}",
                 "--nnodes=1", 
                 "--node_rank=0",
                 "--master_addr=localhost",
@@ -148,15 +154,16 @@ class JobManager:
             ]
             
             # Set environment for better NCCL stability
+            gpu_list = ",".join(str(i) for i in range(num_gpus))
             env = os.environ.copy()
             env.update({
                 "NCCL_DEBUG": "INFO",
                 "NCCL_SOCKET_IFNAME": "lo", 
                 "NCCL_P2P_DISABLE": "1",
-                "CUDA_VISIBLE_DEVICES": "0,1,2,3,4,5,6,7"
+                "CUDA_VISIBLE_DEVICES": gpu_list
             })
             
-            print(f"Launching 8-GPU training for job {job.job_uuid}")
+            print(f"Launching {num_gpus}-GPU training for job {job.job_uuid}")
             job.torchrun_process = subprocess.Popen(
                 cmd,
                 cwd=Path(__file__).parent,
@@ -167,7 +174,7 @@ class JobManager:
             )
             
             job.start()
-            print(f"Job {job.job_uuid} started with PID {job.torchrun_process.pid}")
+            print(f"Job {job.job_uuid} started with PID {job.torchrun_process.pid} on {num_gpus} GPUs")
             
         except Exception as e:
             job.fail(str(e))
@@ -218,9 +225,11 @@ job_manager = JobManager()
 @app.on_event("startup")
 async def startup_event():
     """Initialize the HTTP server"""
+    num_gpus = torch.cuda.device_count()
     print("Starting TRL Remote HTTP Server...")
     print("Job tracking system initialized")
-    print("Ready to accept 8-GPU training jobs")
+    print(f"Detected {num_gpus} GPU(s) available")
+    print(f"Ready to accept {num_gpus}-GPU training jobs" if num_gpus > 1 else "Ready to accept single-GPU training jobs")
     # Start job monitor task
     job_manager.monitor_task = asyncio.create_task(job_manager.monitor_jobs())
 
@@ -317,7 +326,7 @@ async def get_training_job_logs(job_uuid: str):
 
 @app.post("/preference-optimize")
 async def preference_optimize_endpoint(request: dict):
-    """Submit DPO training job for 8-GPU execution"""
+    """Submit DPO training job for multi-GPU execution"""
     try:
         # Extract request data
         job_uuid = request.get("job_uuid")
@@ -338,10 +347,10 @@ async def preference_optimize_endpoint(request: dict):
         except ValueError as e:
             raise HTTPException(status_code=409, detail=str(e))
         
-        # Submit to 8-GPU workers
+        # Submit to multi-GPU workers
         await job_manager.submit_training_job(job, request)
         
-        print(f"Job {job_uuid} submitted for 8-GPU training")
+        print(f"Job {job_uuid} submitted for multi-GPU training")
         return {"job_uuid": job.job_uuid}
         
     except HTTPException:

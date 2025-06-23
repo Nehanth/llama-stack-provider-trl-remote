@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-TRL 8-GPU Training Worker
-=========================
+TRL Multi-GPU Training Worker
+=============================
 
-Training worker that runs under torchrun for distributed 8-GPU DPO training.
+Training worker that runs under torchrun for distributed multi-GPU DPO training.
 All ranks participate in training together - no hanging issues!
 
 Usage:
-  torchrun --nproc_per_node=8 training_worker.py <job_uuid>
+  torchrun --nproc_per_node=<num_gpus> training_worker.py <job_uuid>
 """
 
 import json
@@ -76,14 +76,14 @@ async def main():
         training_config = TrainingConfig(**training_config_dict)
         
         # Create DPO trainer with dataset data
-        print(f"Rank {local_rank}: Initializing DPO trainer for 8-GPU training")
+        print(f"Rank {local_rank}: Initializing DPO trainer for {world_size}-GPU training")
         dpo_trainer = DPOTrainingUnified(
             job_uuid=job_uuid,
             dataset_data=dataset_data
         )
         
         # All ranks participate in training together!
-        print(f"Rank {local_rank}: Starting 8-GPU DPO training")
+        print(f"Rank {local_rank}: Starting {world_size}-GPU DPO training")
         memory_stats, checkpoints = await dpo_trainer.train(
             model=model,
             output_dir=checkpoint_dir,

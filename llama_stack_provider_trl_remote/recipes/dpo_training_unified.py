@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 
 class DPOTrainingUnified:
     """
-    🚀 UNIFIED DPO training using TRL's native FSDP support.
+    UNIFIED DPO training using TRL's native FSDP support.
     
     Automatically handles both single-device and multi-GPU training!
     - WORLD_SIZE=1: Single-device training
@@ -161,7 +161,7 @@ class DPOTrainingUnified:
         steps_per_epoch: int,
     ) -> DPOConfig:
         """Setup DPO training configuration with native FSDP support."""
-        logger.info("🚀 Configuring multi-GPU DPO training with native FSDP")
+        logger.info("Configuring multi-GPU DPO training with native FSDP")
         
         # DPO learning rate
         lr = 1e-4
@@ -209,7 +209,6 @@ class DPOTrainingUnified:
             per_device_eval_batch_size=min(data_config.batch_size, 4),
             gradient_accumulation_steps=config.gradient_accumulation_steps,
             
-            # 🚀 FIXED FSDP CONFIGURATION for 8 GPUs
             fsdp="full_shard",
             fsdp_config={
                 # Use min_num_params instead of transformer_layer_cls_to_wrap (they're mutually exclusive)
@@ -277,11 +276,11 @@ class DPOTrainingUnified:
         provider_config: TrlPostTrainingConfig,
     ) -> tuple[dict[str, Any], list[Checkpoint]]:
         """
-        🚀 Execute multi-GPU DPO training with native FSDP support.
+        Execute multi-GPU DPO training with native FSDP support.
         
         Let TRL and Hugging Face handle all the distributed complexity!
         """
-        logger.info("🚀 Starting multi-GPU DPO training with native FSDP")
+        logger.info("Starting multi-GPU DPO training with native FSDP")
 
         output_dir_path = None
         if output_dir:
@@ -350,12 +349,12 @@ class DPOTrainingUnified:
                 eval_dataset=eval_dataset,
                 processing_class=tokenizer,
             )
-            logger.info("✅ DPOTrainer initialized successfully")
+            logger.info("DPOTrainer initialized successfully")
 
             # Execute training - TRL handles everything!
-            logger.info("🚀 Starting multi-GPU DPO training")
+            logger.info("Starting multi-GPU DPO training")
             trainer.train()
-            logger.info("✅ Multi-GPU DPO training completed successfully")
+            logger.info("Multi-GPU DPO training completed successfully")
 
             # Save model (TRL handles FSDP consolidation)
             checkpoints = []
