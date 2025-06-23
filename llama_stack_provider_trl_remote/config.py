@@ -20,8 +20,6 @@ class TrlPostTrainingConfig(BaseModel):
     - Training hyperparameters (learning rate, batch size, etc.)
     - DPO-specific parameters (beta, loss type, reference model)
     
-    All parameters have sensible defaults, so you only need to specify
-    the ones you want to change from the defaults.
     """
     
     # === HARDWARE AND DEVICE SETTINGS ===

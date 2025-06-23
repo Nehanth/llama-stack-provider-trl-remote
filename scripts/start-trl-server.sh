@@ -5,7 +5,7 @@
 
 set -e
 
-echo "🚀 Starting TRL Remote Server..."
+echo "Starting TRL Remote Server..."
 
 # Activate virtual environment
 if [ -f .venv/bin/activate ]; then
@@ -38,8 +38,8 @@ else
 fi
 
 # Start standalone HTTP server
-echo "🚀 Starting standalone HTTP server on port 8080..."
-echo "🚀 Ready to launch $GPU_COUNT-GPU training workers on demand"
+echo "Starting standalone HTTP server on port 8080..."
+echo "Ready to launch $GPU_COUNT-GPU training workers on demand"
 cd llama_stack_provider_trl_remote
 
 python http_server.py 

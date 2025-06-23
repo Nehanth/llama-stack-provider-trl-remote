@@ -3,7 +3,7 @@ DPO Training Recipe for Multi-GPU (FSDP) - FULLY CLEANED UP VERSION
 ====================================================================
 
 This file implements DPO (Direct Preference Optimization) training using HuggingFace's TRL library
-with native FSDP support. Let the frameworks handle the complexity!
+with native FSDP support.
 
 """
 

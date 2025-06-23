@@ -6,7 +6,7 @@
 
 set -e
 
-echo "🦙 Starting Llama Stack Client..."
+echo "Starting Llama Stack Client..."
 
 # Activate virtual environment
 if [ -f .venv/bin/activate ]; then
@@ -31,11 +31,11 @@ trap cleanup EXIT INT TERM
 echo "Checking if TRL Remote Service is available on port 8080..."
 for i in {1..30}; do
     if curl -s http://localhost:8080/health >/dev/null 2>&1; then
-        echo "✅ TRL Remote Service is ready!"
+        echo "TRL Remote Service is ready!"
         break
     fi
     if [ $i -eq 30 ]; then
-        echo "❌ ERROR: TRL Remote Service not found on port 8080"
+        echo "ERROR: TRL Remote Service not found on port 8080"
         echo "Please start the TRL server first with: ./scripts/start-trl-server.sh"
         exit 1
     fi
@@ -52,11 +52,11 @@ LLS_PID=$!
 echo "Waiting for Llama Stack client to initialize..."
 for i in {1..30}; do
     if curl -s http://localhost:8321/v1/providers >/dev/null 2>&1; then
-        echo "✅ Llama Stack Client is ready!"
+        echo "Llama Stack Client is ready!"
         break
     fi
     if [ $i -eq 30 ]; then
-        echo "❌ ERROR: Llama Stack client failed to start"
+        echo "ERROR: Llama Stack client failed to start"
         exit 1
     fi
     sleep 1

@@ -5,17 +5,6 @@ TRL Remote Provider Entry Point
 This file serves as the entry point for the TRL Remote Provider adapter.
 When Llama Stack needs to create an instance of the remote TRL provider, it calls the function
 in this file to get a properly configured adapter instance.
-
-Remote providers use adapters that communicate with external services, unlike inline providers
-that run directly within the Llama Stack process.
-
-What happens here:
-1. Llama Stack calls get_adapter_impl() with configuration and dependencies
-2. We import our adapter class (TrlRemoteAdapter) 
-3. We create an instance with the provided config
-4. We return the ready-to-use adapter instance
-
-This follows the standard Llama Stack remote provider pattern.
 """
 
 from typing import Any
@@ -46,9 +35,6 @@ async def get_adapter_impl(
         TrlRemoteAdapter: A configured adapter instance ready to communicate
                          with the remote TRL training service
     
-    Note:
-        Remote adapters don't receive the same dependencies as inline providers
-        since the remote service handles its own dependencies.
     """
     
     from .adapter import TrlRemoteAdapter

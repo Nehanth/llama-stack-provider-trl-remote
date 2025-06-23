@@ -3,8 +3,7 @@ TRL Remote Provider Adapter
 ===========================
 
 This adapter implements the PostTraining protocol by forwarding requests
-to a remote TRL training service over HTTP. It reuses all the same data types
-and interfaces as the inline provider.
+to a remote TRL training service over HTTP.
 
 The adapter acts as an HTTP client that:
 1. Receives PostTraining method calls from Llama Stack
@@ -58,12 +57,7 @@ def serialize_for_json(obj):
 class TrlRemoteAdapter:
     """
     Remote adapter for TRL provider that communicates with remote training service.
-    
-    This adapter implements the same PostTraining interface as the inline provider
-    but forwards all requests to a remote service over HTTP.
-    
-    The remote service runs the same TRL training logic as the inline provider,
-    just in a separate process/service.
+
     """
     
     def __init__(self, config: TrlRemoteConfig):
@@ -154,9 +148,7 @@ class TrlRemoteAdapter:
         checkpoint_dir: str | None = None,
         algorithm_config: AlgorithmConfig | None = None,
     ) -> PostTrainingJob:
-        """
-        Forward supervised fine-tuning request to remote service.
-        
+        """ 
         Note: This will return NotImplementedError from the remote service
         since TRL provider only supports DPO training.
         """
@@ -187,7 +179,7 @@ class TrlRemoteAdapter:
     ) -> PostTrainingJob:
         """
         Forward DPO training request to remote service.
-        
+    
         WORKAROUND: Transform LoRA algorithm configs to DPO format since
         core Llama Stack validation blocks DPO format before reaching our provider.
         """

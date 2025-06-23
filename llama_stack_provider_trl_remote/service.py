@@ -3,10 +3,9 @@ TRL Remote Training Service
 ===========================
 
 FastAPI service that wraps the TRL inline provider and exposes it via HTTP.
-This allows running TRL training jobs remotely while reusing all the existing 
-training logic, recipes, and configurations.
+This allows running TRL training jobs remotely
 
-Now includes asynchronous job tracking and status monitoring.
+Includes asynchronous job tracking and status monitoring.
 """
 
 import asyncio
@@ -130,7 +129,6 @@ class JobManager:
             provider_config = training_params["provider_config"]
             dataset_data = training_params["dataset_data"]
             
-            # Use dataset data directly - no mock layer needed
             
             # Create unified DPO trainer (handles both single and multi-GPU automatically)
             world_size = int(os.environ.get("WORLD_SIZE", 1))
@@ -184,9 +182,6 @@ class JobManager:
                 job,
                 training_params
             )
-
-
-# No more mock/handler classes needed - dataset_data passed directly
 
 
 # === FASTAPI SERVICE ===
