@@ -19,6 +19,7 @@ job_queue/
 *.pth
 *.safetensors
 *.bin
+llama_stack_provider_trl_remote/dpo_checkpoints/
 
 # Logs
 *.log
