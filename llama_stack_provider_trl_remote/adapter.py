@@ -19,6 +19,7 @@ from enum import Enum
 import aiohttp
 from llama_stack.apis.post_training import (
     AlgorithmConfig,
+    DPOAlignmentConfig,
     ListPostTrainingJobsResponse,
     PostTrainingJob,
     PostTrainingJobArtifactsResponse,
@@ -150,38 +151,26 @@ class TrlRemoteAdapter:
     ) -> PostTrainingJob:
         """ 
         Note: This will return NotImplementedError from the remote service
-        since TRL provider only supports DPO training.
+        since our TRL provider only supports DPO training.
         """
-        request_data = {
-            "job_uuid": job_uuid,
-            "training_config": training_config,
-            "hyperparam_search_config": hyperparam_search_config,
-            "logger_config": logger_config,
-            "model": model,
-            "checkpoint_dir": checkpoint_dir,
-            "algorithm_config": algorithm_config,
-            "provider_config": self.config.training_config.dict()
-        }
-        
-        response_data = await self._make_request("POST", "/supervised-fine-tune", request_data)
-        return PostTrainingJob(**response_data)
+        raise NotImplementedError(
+            "TRL provider only supports DPO training through the preference_optimize endpoint. "
+            "Please use preference_optimize instead of supervised_fine_tune."
+        )
         
     async def preference_optimize(
         self,
         job_uuid: str,
-        model: str,
         finetuned_model: str,
-        algorithm_config: AlgorithmConfig,
+        algorithm_config: DPOAlignmentConfig,
         training_config: TrainingConfig,
         hyperparam_search_config: dict[str, Any],
         logger_config: dict[str, Any],
-        checkpoint_dir: str | None = None,
     ) -> PostTrainingJob:
         """
         Forward DPO training request to remote service.
-    
-        WORKAROUND: Transform LoRA algorithm configs to DPO format since
-        core Llama Stack validation blocks DPO format before reaching our provider.
+        
+        This is the proper endpoint for DPO training - uses DPOAlignmentConfig format.
         """
         
         # Get dataset data from client to include in the request
@@ -204,53 +193,18 @@ class TrlRemoteAdapter:
             except Exception as e:
                 print(f"Warning: Could not fetch dataset data: {e}")
         
-        # Transform algorithm config for DPO training (workaround for core LLS validation)
-        # Client sends LoRA format (passes schema validation)
-        # Remote service expects DPO format (from examples.ipynb)
         algorithm_dict = algorithm_config.dict() if hasattr(algorithm_config, 'dict') else algorithm_config
-        
-        # Transform LoRA config to DPO config for preference optimization
-        if hasattr(algorithm_config, 'type') and algorithm_config.type == "LoRA":
-            # Convert LoRA parameters to DPO parameters
-            # Use LoRA rank and alpha to set DPO parameters
-            rank = getattr(algorithm_config, 'rank', 16)
-            alpha = getattr(algorithm_config, 'alpha', 32)
-            dropout = getattr(algorithm_config, 'dropout', 0.1)
-            
-            # Transform to DPO format that remote service expects
-            transformed_algorithm_config = {
-                "reward_scale": float(alpha / rank),  # Use LoRA ratio as reward scale
-                "reward_clip": 5.0,
-                "epsilon": dropout,  # Use LoRA dropout as epsilon
-                "gamma": 0.99
-            }
-        elif isinstance(algorithm_dict, dict) and algorithm_dict.get("type") == "LoRA":
-            # Handle dict-based algorithm config
-            rank = algorithm_dict.get("rank", 16)
-            alpha = algorithm_dict.get("alpha", 32)
-            dropout = algorithm_dict.get("dropout", 0.1)
-            
-            transformed_algorithm_config = {
-                "reward_scale": float(alpha / rank),
-                "reward_clip": 5.0,
-                "epsilon": dropout,
-                "gamma": 0.99
-            }
-        else:
-            # Pass through non-LoRA configs as-is (fallback)
-            transformed_algorithm_config = algorithm_dict
         
         request_data = {
             "job_uuid": job_uuid,
-            "model": model,
-            "finetuned_model": finetuned_model,
-            "algorithm_config": transformed_algorithm_config,  # Send transformed DPO config
+            "model": finetuned_model,  
+            "finetuned_model": finetuned_model,  
+            "algorithm_config": algorithm_dict,  
             "training_config": training_config,
             "hyperparam_search_config": hyperparam_search_config,
             "logger_config": logger_config,
-            "checkpoint_dir": checkpoint_dir,
             "provider_config": self.config.training_config.dict(),
-            "dataset_data": dataset_data  # Include dataset data directly
+            "dataset_data": dataset_data  
         }
         
         response_data = await self._make_request("POST", "/preference-optimize", request_data)
