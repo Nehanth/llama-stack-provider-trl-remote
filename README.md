@@ -62,7 +62,7 @@ This provides a real-time view of GPU utilization, memory usage, and running pro
 ## Project Structure
 
 ```
-llama-stack-provider-trl/
+llama-stack-provider-trl-remote/
 ├── llama_stack_provider_trl_remote/    # Remote provider package
 │   ├── __init__.py                     # Provider entry point
 │   ├── adapter.py                      # HTTP client adapter
