@@ -66,12 +66,19 @@ async def main():
         # Create configurations
         config = TrlPostTrainingConfig(**provider_config_dict) if provider_config_dict else TrlPostTrainingConfig()
         
+        # Create algorithm_config with dummy PPO parameters (required by Llama Stack schema)
         algorithm_config = DPOAlignmentConfig(
-            reward_scale=algorithm_config_dict.get("reward_scale", 1.0),
-            reward_clip=algorithm_config_dict.get("reward_clip", 5.0),
-            epsilon=algorithm_config_dict.get("epsilon", 0.1),
-            gamma=algorithm_config_dict.get("gamma", 0.99)
+            reward_scale=algorithm_config_dict.get("reward_scale", 0.0),
+            reward_clip=algorithm_config_dict.get("reward_clip", 0.0), 
+            epsilon=algorithm_config_dict.get("epsilon", 0.0),
+            gamma=algorithm_config_dict.get("gamma", 0.0)
         )
+        
+        # Add real DPO parameters as attributes (they'll be extracted in the training recipe)
+        if "beta" in algorithm_config_dict:
+            algorithm_config.beta = algorithm_config_dict["beta"]
+        if "loss_type" in algorithm_config_dict:
+            algorithm_config.loss_type = algorithm_config_dict["loss_type"]
         
         training_config = TrainingConfig(**training_config_dict)
         

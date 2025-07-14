@@ -136,9 +136,19 @@ class DPOTrainingMulticard:
         ds = self.create_dpo_dataset(rows)
         logger.info(f"DPO dataset created with {len(ds)} examples")
 
-        # Split for training and evaluation
+        # Split for training and evaluation (configurable split)
         logger.info("Splitting dataset for multi-GPU DPO training")
-        train_val_split = ds.train_test_split(test_size=0.1, seed=42)
+        
+        # Extract train_split_percentage from data_config if available
+        test_size = 0.1  # Default: 90% train, 10% validation
+        if hasattr(config.data_config, 'train_split_percentage'):
+            test_size = 1.0 - config.data_config.train_split_percentage
+        elif hasattr(config.data_config, '__dict__') and 'train_split_percentage' in config.data_config.__dict__:
+            test_size = 1.0 - config.data_config.__dict__['train_split_percentage']
+        
+        logger.info(f"Using train/validation split: {100*(1-test_size):.1f}%/{100*test_size:.1f}%")
+        
+        train_val_split = ds.train_test_split(test_size=test_size, seed=42)
         train_dataset = train_val_split["train"]
         eval_dataset = train_val_split["test"]
         
@@ -163,14 +173,45 @@ class DPOTrainingMulticard:
         """Setup DPO training configuration with native FSDP support."""
         logger.info("Configuring multi-GPU DPO training with native FSDP")
         
-        # DPO learning rate
+        # Extract optimizer parameters from config or use defaults
         lr = 1e-4
+        warmup_ratio = 0.1  # Default
+        weight_decay = 0.01  # Default
+        
         if config.optimizer_config:
             lr = config.optimizer_config.lr
+            if hasattr(config.optimizer_config, 'warmup_ratio'):
+                warmup_ratio = config.optimizer_config.warmup_ratio
+            if hasattr(config.optimizer_config, 'weight_decay'):
+                weight_decay = config.optimizer_config.weight_decay
 
         if not config.data_config:
             raise ValueError("DataConfig is required for DPO training")
         data_config = config.data_config
+
+        # Extract real DPO parameters from algorithm_config if present
+        # Fall back to provider_config defaults if not present
+        dpo_beta = provider_config.dpo_beta  # Default from provider config
+        dpo_loss_type = provider_config.dpo_loss_type  # Default from provider config
+        
+        # Check if algorithm_config contains DPO parameters (not just dummy PPO ones)
+        if hasattr(dpo_config, 'beta') and dpo_config.beta is not None:
+            dpo_beta = dpo_config.beta
+            logger.info(f"Using DPO beta from algorithm_config: {dpo_beta}")
+        elif hasattr(dpo_config, '__dict__') and 'beta' in dpo_config.__dict__:
+            dpo_beta = dpo_config.__dict__['beta']
+            logger.info(f"Using DPO beta from algorithm_config dict: {dpo_beta}")
+        else:
+            logger.info(f"Using DPO beta from provider_config: {dpo_beta}")
+            
+        if hasattr(dpo_config, 'loss_type') and dpo_config.loss_type is not None:
+            dpo_loss_type = dpo_config.loss_type
+            logger.info(f"Using DPO loss_type from algorithm_config: {dpo_loss_type}")
+        elif hasattr(dpo_config, '__dict__') and 'loss_type' in dpo_config.__dict__:
+            dpo_loss_type = dpo_config.__dict__['loss_type']
+            logger.info(f"Using DPO loss_type from algorithm_config dict: {dpo_loss_type}")
+        else:
+            logger.info(f"Using DPO loss_type from provider_config: {dpo_loss_type}")
 
         # Calculate training steps
         world_size = int(os.environ.get("WORLD_SIZE", 1))
@@ -195,6 +236,10 @@ class DPOTrainingMulticard:
         logger.info(f"- Steps per epoch: {steps_per_epoch}")
         logger.info(f"- Max steps: {max_steps}")
         logger.info(f"- Learning rate: {lr}")
+        logger.info(f"- Warmup ratio: {warmup_ratio}")
+        logger.info(f"- Weight decay: {weight_decay}")
+        logger.info(f"- DPO beta: {dpo_beta}")
+        logger.info(f"- DPO loss_type: {dpo_loss_type}")
 
         save_strategy = "steps" if output_dir_path else "no"
 
@@ -206,7 +251,7 @@ class DPOTrainingMulticard:
             
             # Multi-GPU batch settings
             per_device_train_batch_size=data_config.batch_size,
-            per_device_eval_batch_size=min(data_config.batch_size, 4),
+            per_device_eval_batch_size=data_config.batch_size,  # Use same batch size for eval
             gradient_accumulation_steps=config.gradient_accumulation_steps,
             
             fsdp="full_shard",
@@ -233,7 +278,7 @@ class DPOTrainingMulticard:
             load_best_model_at_end=False,  # Disabled for FSDP compatibility
             metric_for_best_model="eval_loss",
             greater_is_better=False,
-            save_total_limit=3,
+            save_total_limit=provider_config.save_total_limit,
             save_only_model=False,  # Save full checkpoint for FSDP
             
             # Logging
@@ -246,20 +291,20 @@ class DPOTrainingMulticard:
             max_prompt_length=provider_config.max_seq_length // 2,
             gradient_checkpointing=provider_config.gradient_checkpointing,
             
-            # Optimizer settings
+            # Optimizer settings (configurable)
             learning_rate=lr,
-            warmup_ratio=0.1,
-            weight_decay=0.01,
+            warmup_ratio=warmup_ratio,
+            weight_decay=weight_decay,
             
-            # Multi-GPU data loading (HF handles distribution)
-            dataloader_pin_memory=True,
-            dataloader_num_workers=4,
+            # Multi-GPU data loading (configurable via provider_config)
+            dataloader_pin_memory=provider_config.dataloader_pin_memory,
+            dataloader_num_workers=provider_config.dataloader_num_workers,
             dataloader_drop_last=True,
             
-            # DPO algorithm parameters
-            beta=provider_config.dpo_beta,
-            loss_type=provider_config.dpo_loss_type,
-            label_smoothing=0.0,
+            # DPO algorithm parameters (from algorithm_config or provider_config)
+            beta=dpo_beta,
+            loss_type=dpo_loss_type,
+            label_smoothing=provider_config.label_smoothing,
             
             # Let HF handle distributed setup
             ddp_find_unused_parameters=False,
