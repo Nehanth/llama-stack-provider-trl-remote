@@ -4,7 +4,7 @@ TRL Multi-GPU Training Worker
 =============================
 
 Training worker that runs under torchrun for distributed multi-GPU DPO training.
-All ranks participate in training together - no hanging issues!
+All ranks participate in training together
 
 Usage:
   torchrun --nproc_per_node=<num_gpus> training_worker.py <job_uuid>
