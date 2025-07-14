@@ -148,6 +148,20 @@ class DPOTrainingMulticard:
         
         logger.info(f"Using train/validation split: {100*(1-test_size):.1f}%/{100*test_size:.1f}%")
         
+        # Extract shuffle parameter from data_config
+        shuffle_dataset = True  # Default
+        if hasattr(config.data_config, 'shuffle'):
+            shuffle_dataset = config.data_config.shuffle
+        elif hasattr(config.data_config, '__dict__') and 'shuffle' in config.data_config.__dict__:
+            shuffle_dataset = config.data_config.__dict__['shuffle']
+        
+        logger.info(f"Dataset shuffle: {shuffle_dataset}")
+        
+        # Apply shuffle if requested before splitting
+        if shuffle_dataset:
+            ds = ds.shuffle(seed=42)
+            logger.info("Dataset shuffled before train/validation split")
+        
         train_val_split = ds.train_test_split(test_size=test_size, seed=42)
         train_dataset = train_val_split["train"]
         eval_dataset = train_val_split["test"]
@@ -177,6 +191,7 @@ class DPOTrainingMulticard:
         lr = 1e-4
         warmup_ratio = 0.1  # Default
         weight_decay = 0.01  # Default
+        optimizer_type = "adamw"  # Default optimizer
         
         if config.optimizer_config:
             lr = config.optimizer_config.lr
@@ -184,6 +199,27 @@ class DPOTrainingMulticard:
                 warmup_ratio = config.optimizer_config.warmup_ratio
             if hasattr(config.optimizer_config, 'weight_decay'):
                 weight_decay = config.optimizer_config.weight_decay
+            if hasattr(config.optimizer_config, 'optimizer_type'):
+                optimizer_type = config.optimizer_config.optimizer_type
+        
+        # Convert optimizer_type to correct DPO format
+        optimizer_mapping = {
+            "adamw": "adamw_torch",
+            "adam": "adam",
+            "sgd": "sgd",
+            "adamw_torch": "adamw_torch",
+            "adamw_hf": "adamw_hf",
+        }
+        
+        # Handle both string and enum values safely
+        # Convert to string first, then lowercase
+        optimizer_str = str(optimizer_type).lower()
+        
+        # Handle enum values that might have format "OptimizerType.adamw"
+        if "." in optimizer_str:
+            optimizer_str = optimizer_str.split(".")[-1]
+            
+        optim = optimizer_mapping.get(optimizer_str, "adamw_torch")
 
         if not config.data_config:
             raise ValueError("DataConfig is required for DPO training")
@@ -238,6 +274,7 @@ class DPOTrainingMulticard:
         logger.info(f"- Learning rate: {lr}")
         logger.info(f"- Warmup ratio: {warmup_ratio}")
         logger.info(f"- Weight decay: {weight_decay}")
+        logger.info(f"- Optimizer type: {optimizer_type} -> {optim}")
         logger.info(f"- DPO beta: {dpo_beta}")
         logger.info(f"- DPO loss_type: {dpo_loss_type}")
 
@@ -295,6 +332,7 @@ class DPOTrainingMulticard:
             learning_rate=lr,
             warmup_ratio=warmup_ratio,
             weight_decay=weight_decay,
+            optim=optim,
             
             # Multi-GPU data loading (configurable via provider_config)
             dataloader_pin_memory=provider_config.dataloader_pin_memory,
