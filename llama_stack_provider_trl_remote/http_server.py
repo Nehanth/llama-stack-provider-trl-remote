@@ -28,6 +28,7 @@ from fastapi import FastAPI, HTTPException
 
 # Job status tracking
 class JobStatus(str, Enum):
+    QUEUED = "queued"
     SCHEDULED = "scheduled"
     IN_PROGRESS = "in_progress" 
     COMPLETED = "completed"
@@ -41,7 +42,7 @@ class TrainingJob:
         self.job_uuid = job_uuid
         self.model = model
         self.finetuned_model = finetuned_model
-        self.status = JobStatus.SCHEDULED
+        self.status = JobStatus.QUEUED  # Jobs start as queued
         self.scheduled_at = datetime.now(timezone.utc)
         self.started_at: Optional[datetime] = None
         self.completed_at: Optional[datetime] = None
@@ -91,6 +92,10 @@ class JobManager:
         self.job_queue_dir = Path("./job_queue")
         self.job_queue_dir.mkdir(exist_ok=True)
         self.monitor_task: Optional[asyncio.Task] = None
+        self.current_training_job: Optional[TrainingJob] = None  # Track active job
+        self.training_lock = asyncio.Lock()  # Ensure only one job runs at a time
+        self.job_queue: asyncio.Queue = asyncio.Queue()  # Queue for pending jobs
+        self.queue_processor_task: Optional[asyncio.Task] = None  # Task to process queue
         
     def create_job(self, job_uuid: str, model: str, finetuned_model: str) -> TrainingJob:
         """Create a new training job"""
@@ -108,6 +113,11 @@ class JobManager:
     def list_jobs(self) -> list[TrainingJob]:
         """List all jobs"""
         return list(self.jobs.values())
+        
+    async def queue_job(self, job: TrainingJob, training_params: dict):
+        """Add a job to the queue for processing"""
+        await self.job_queue.put((job, training_params))
+        print(f"Job {job.job_uuid} added to queue (queue size: {self.job_queue.qsize()})")
         
     def capture_training_logs(self, job: TrainingJob):
         """Capture training logs from subprocess output"""
@@ -131,6 +141,9 @@ class JobManager:
     async def submit_training_job(self, job: TrainingJob, training_params: dict):
         """Submit job to distributed training workers"""
         try:
+            # Set this as the current training job
+            self.current_training_job = job
+            
             # Detect available GPUs dynamically
             num_gpus = torch.cuda.device_count()
             if num_gpus == 0:
@@ -178,8 +191,81 @@ class JobManager:
             
         except Exception as e:
             job.fail(str(e))
+            self.current_training_job = None  # Clear current job on failure
             print(f"Failed to start job {job.job_uuid}: {e}")
+            raise
             
+    async def wait_for_completion(self, job: TrainingJob, check_interval: float = 2.0) -> None:
+        """Wait for a job to complete by monitoring its status"""
+        while job.status == JobStatus.IN_PROGRESS:
+            if job.torchrun_process:
+                # Capture any new output from the process
+                self.capture_training_logs(job)
+                
+                # Check if process is still running
+                if job.torchrun_process.poll() is not None:
+                    # Process finished, check status file
+                    status_file = self.job_queue_dir / f"{job.job_uuid}_status.json"
+                    
+                    # Wait a bit for the status file to be written
+                    for _ in range(5):  # Try for up to 10 seconds
+                        if status_file.exists():
+                            break
+                        await asyncio.sleep(2)
+                    
+                    if status_file.exists():
+                        with open(status_file) as f:
+                            status_data = json.load(f)
+                        
+                        if status_data.get("status") == "completed":
+                            job.complete(status_data.get("checkpoints", []))
+                            print(f"Job {job.job_uuid} completed successfully")
+                        else:
+                            error = status_data.get("error", "Unknown error")
+                            job.fail(error)
+                            print(f"Job {job.job_uuid} failed: {error}")
+                            
+                        # Cleanup files
+                        status_file.unlink(missing_ok=True)
+                        (self.job_queue_dir / f"{job.job_uuid}.json").unlink(missing_ok=True)
+                    else:
+                        job.fail("Training process exited without status")
+                    
+                    # Clear current job when done
+                    if self.current_training_job == job:
+                        self.current_training_job = None
+                    
+                    # Job is done, exit the loop
+                    break
+                    
+            await asyncio.sleep(check_interval)
+            
+    async def process_job_queue(self):
+        """Background task to process queued jobs sequentially"""
+        while True:
+            try:
+                # Wait for a job in the queue
+                job, training_params = await self.job_queue.get()
+                
+                print(f"Processing job {job.job_uuid} from queue")
+                
+                # Update status to scheduled now that we're processing it
+                job.status = JobStatus.SCHEDULED
+                
+                # Wait for any current job to complete
+                while self.current_training_job and self.current_training_job.status == JobStatus.IN_PROGRESS:
+                    await asyncio.sleep(2)
+                
+                # Submit the job
+                await self.submit_training_job(job, training_params)
+                
+                # Wait for this job to complete before processing the next one
+                await self.wait_for_completion(job)
+                
+            except Exception as e:
+                print(f"Error processing job queue: {e}")
+                await asyncio.sleep(5)  # Wait before retrying
+                
     async def monitor_jobs(self):
         """Background task to monitor job status"""
         while True:
@@ -208,6 +294,10 @@ class JobManager:
                                 # Cleanup files
                                 status_file.unlink(missing_ok=True)
                                 (self.job_queue_dir / f"{job.job_uuid}.json").unlink(missing_ok=True)
+                                
+                                # Clear current job when done
+                                if self.current_training_job == job:
+                                    self.current_training_job = None
                             else:
                                 job.fail("Training process exited without status")
                                 
@@ -232,6 +322,9 @@ async def startup_event():
     print(f"Ready to accept {num_gpus}-GPU training jobs" if num_gpus > 1 else "Ready to accept single-GPU training jobs")
     # Start job monitor task
     job_manager.monitor_task = asyncio.create_task(job_manager.monitor_jobs())
+    # Start job queue processor task
+    job_manager.queue_processor_task = asyncio.create_task(job_manager.process_job_queue())
+    print("Job queue processor started")
 
 
 @app.get("/health")
@@ -347,11 +440,15 @@ async def preference_optimize_endpoint(request: dict):
         except ValueError as e:
             raise HTTPException(status_code=409, detail=str(e))
         
-        # Submit to multi-GPU workers
-        await job_manager.submit_training_job(job, request)
+        # Add job to queue instead of submitting directly
+        await job_manager.queue_job(job, request)
         
-        print(f"Job {job_uuid} submitted for multi-GPU training")
-        return {"job_uuid": job.job_uuid}
+        print(f"Job {job_uuid} added to training queue")
+        return {
+            "job_uuid": job.job_uuid,
+            "status": "queued",
+            "message": f"Job queued for training. Queue position: {job_manager.job_queue.qsize()}"
+        }
         
     except HTTPException:
         raise
