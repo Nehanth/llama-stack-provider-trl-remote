@@ -188,7 +188,7 @@ class DPOTrainingMulticard:
         logger.info("Configuring multi-GPU DPO training with native FSDP")
         
         # Extract optimizer parameters from config or use defaults
-        lr = 1e-4
+        lr = 1e-4 # Default
         warmup_ratio = 0.1  # Default
         weight_decay = 0.01  # Default
         optimizer_type = "adamw"  # Default optimizer

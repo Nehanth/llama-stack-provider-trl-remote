@@ -76,9 +76,9 @@ async def main():
         
         # Add real DPO parameters as attributes (they'll be extracted in the training recipe)
         if "beta" in algorithm_config_dict:
-            algorithm_config.beta = algorithm_config_dict["beta"]
+            setattr(algorithm_config, "beta", algorithm_config_dict["beta"])
         if "loss_type" in algorithm_config_dict:
-            algorithm_config.loss_type = algorithm_config_dict["loss_type"]
+            setattr(algorithm_config, "loss_type", algorithm_config_dict["loss_type"])
         
         training_config = TrainingConfig(**training_config_dict)
         
